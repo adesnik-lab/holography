@@ -2569,8 +2569,23 @@ for i=4:numel(files)
         Frames{k}(:,:,c) = Frame;
         
         if c>1
-            testFr = Frames{k}(:,:,c-1) - Frame;
-            [ x,y ] =function_findcenter(testFr );
+            baseFrame = Frames{k}(:,:,c-1);
+            
+            %try to exclude those very bright spots
+            maskFR = imgaussfilt(Frame,3) - imgaussfilt(Frame,16);
+            mask = maskFR > mean(maskFR(:))+6*std(maskFR(:));
+            
+            %remove the low frequency slide illumination differences
+            filtNum = 4;
+            frameFilt = imgaussfilt(Frame,filtNum);
+            baseFilt = imgaussfilt(baseFrame,filtNum);
+            
+            
+            toCalc = (baseFrame-baseFilt) - (Frame-frameFilt);
+            toCalc(mask)=0;
+            
+%             testFr = Frames{k}(:,:,c-1) - Frame;
+            [ x,y ] =function_findcenter(toCalc);
         else
             x = 0;
             y=0;
