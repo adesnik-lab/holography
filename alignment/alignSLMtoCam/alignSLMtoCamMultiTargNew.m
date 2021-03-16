@@ -1090,6 +1090,7 @@ for i = 1:planes%1:planes
 end
 
 fprintf(['All Done. Total Took ' num2str(toc(multi_time)) 's\n']);
+multiT = toc(multi_time);
 
 % %% reshape matrix of values into vectors
 % peakValueList = peakValue(:);
@@ -1595,6 +1596,8 @@ disp([num2str(size(XYpts,2)) ' points per plane selected. ' num2str(size(XYpts,2
 %% Simulate and create new Fine POints
 % do a CoC to get more points to shoot
 
+denseFineTimer = tic; 
+
 nSimulatedTargs = 10000;
 
 % get basler targets to shoot in from basler range
@@ -1867,6 +1870,8 @@ for i = 1:planes
     end
 end
         
+fineT = toc(denseFineTimer);
+disp(['Dense Fine Fits took ' num2str(fineT) 's']);
 
 %% New Fits with denser Fine
 c=0;
@@ -2851,17 +2856,18 @@ save(fullfile(pathToUse,'ActiveCalib.mat'),'CoC')
 
 
 
-% times.saveT = toc(tSave);
-% times.loadT = loadT;
-% times.MovT = MovT;
-% times.burnT = burnT;
-% times.compileBurnT = compileBurnT;
-% times.fitsT = fitsT;
-% times.fineT = fineT;
-% times.coarseT = coarseT;
-% times.siT = siT;
-% times.singleCompileT = singleCompileT;
-% times.multiCompileT = multiCompileT;
+times.saveT = toc(tSave);
+times.loadT = loadT;
+times.MovT = MovT;
+times.burnT = burnT;
+times.compileBurnT = compileBurnT;
+times.fitsT = fitsT;
+times.fineT = fineT; %Second Dense Fine
+times.multiT = multiT; %first pass fine fit
+times.coarseT = coarseT; %Coarse Fit
+times.siT = siT;
+times.singleCompileT = singleCompileT;
+times.multiCompileT = multiCompileT;
 
 totT = toc(tBegin);
 times.totT = totT;
