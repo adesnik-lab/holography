@@ -1919,26 +1919,24 @@ FWHMValBackup = FWHMVal4(~excludeTrials); % added 7/20/2020 -Ian
 %slmXYZBackup = slmXYZBackup(:,1:386); % did this on 1/29/20
 %basXYZBackup = basXYZBackup(:,1:386);
 %%
-f41=figure(41);
-clf(41)
+f41=figure(1922);
 f41.Units = 'Normalized';
 f41.Position = [0.05 0.4 0.5 0.5];
 subplot(1,2,1)
-scatter3(basXYZBackup(1,:),basXYZBackup(2,:),basXYZBackup(3,:), 50, 'k', 'Filled', 'MarkerFaceAlpha',0.5)
-hold on
-scatter3(xyzLoc(1,:), xyzLoc(2,:), xyzLoc(3,:), 70,  'r', 'Filled', 'MarkerFaceAlpha', 0.7)
-legend('Fine','Coarse')
-title('Detected basXYZs')
-subplot(1,2,2)
+% scatter3(basXYZBackup(1,:),basXYZBackup(2,:),basXYZBackup(3,:), 50, 'k', 'Filled', 'MarkerFaceAlpha',0.5)
+% hold on
+% scatter3(xyzLoc(1,:), xyzLoc(2,:), xyzLoc(3,:), 70,  'r', 'Filled', 'MarkerFaceAlpha', 0.7)
+% legend('Fine','Coarse')
+% title('Detected basXYZs')
+% subplot(1,2,2)
 scatter3(basXYZBackup(1,:),basXYZBackup(2,:),basXYZBackup(3,:), 75, basValBackup, 'Filled')
 colorbar
 colormap default
-title('basXYZ and basVals (fine)')
+title({'Second Denser Fine';'basXYZ and basVals (fine)'})
 
-f42=figure(42);
-clf(42)
-f42.Units = 'Normalized';
-f42.Position = [0.05 0 0.40 0.5];
+% f42=figure(42);
+% clf(42)
+subplot(1,2,2)
 plot(basValBackup,'o')
 title('basVal by trial')
 xlabel('time/holo/acq num')
