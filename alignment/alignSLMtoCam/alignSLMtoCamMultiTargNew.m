@@ -2577,7 +2577,7 @@ SIXYZ = SIXYZbackup;
 
 cam3XYZ=cam3XYZ(:,1:size(SIXYZ,2));
 
-excl = SIXYZ(1,:)<=25 | SIXYZ(1,:)>=512| SIXYZ(2,:)<=25 | SIXYZ(2,:)>=512;
+excl = SIXYZ(1,:)<=5 | SIXYZ(1,:)>=507| SIXYZ(2,:)<=5 | SIXYZ(2,:)>=507;
 cam3XYZ(:,excl)=[];
 SIXYZ(:,excl)=[];
 
@@ -2588,15 +2588,15 @@ SIXYZ(:,excl)=[];
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (cam3XYZ(1:3,:))';
-errScalar = 2.5;2.5;2.6;
+errScalar = 2.;2.5;2.6;
 
 figure(2594);clf
 subplot(1,2,1)
-[SItoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,1);
+[SItoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('SI to Cam')
 
 subplot(1,2,2)
-[CamToSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,1);
+[CamToSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,0);
 title('Cam to SI')
 
 CoC.CamToSI = CamToSI;
@@ -2615,7 +2615,7 @@ SIXYZ = SIXYZbackup;
 
 slm3XYZ=slm3XYZ(1:3,1:size(SIXYZ,2));
 
-excl = SIXYZ(1,:)<=25 | SIXYZ(1,:)>=512| SIXYZ(2,:)<=25 | SIXYZ(2,:)>=512;
+excl = SIXYZ(1,:)<=5 | SIXYZ(1,:)>=507| SIXYZ(2,:)<=5 | SIXYZ(2,:)>=507;
 
 slm3XYZ(:,excl)=[];
 SIXYZ(:,excl)=[];
@@ -2626,10 +2626,10 @@ errScalar =2;2.5;2.5;
 
 figure(2616);clf
 subplot(1,2,1)
-[SItoSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,1);
+[SItoSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('SI to SLM')
 subplot(1,2,2)
-[SLMtoSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,1);
+[SLMtoSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,0);
 title('SLM to SI')
 
 CoC.SItoSLM = SItoSLM;
