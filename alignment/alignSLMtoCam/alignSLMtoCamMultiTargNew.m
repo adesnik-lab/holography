@@ -2197,7 +2197,35 @@ CoC.SLMtoPower = SLMtoPower;
 out.CoC = CoC;
 out.powerFitmodelTerms = modelterms;
 
+%% Plot FWHM
+FWHM = FWHMValBackup;
+depth = basXYZBackup(3,:); 
+slmXYZ = slmXYZBackup;
 
+figure(1001); clf
+subplot(1,2,1);
+plot(FWHM,depth,'o')
+% plot(FWHM,slmCoords(3,:),'o')
+
+ylabel('Axial Depth \mum')
+xlabel('FWHM \mum')
+ylim([-75 150])
+xlim([7.5 35])
+
+refline(0,0)
+refline(0,100)
+
+
+subplot(1,2,2);
+scatter3(slmXYZ(1,:),slmXYZ(2,:),slmXYZ(3,:),[],FWHM,'filled')
+caxis([10 30])
+h= colorbar;
+xlabel('SLM X')
+ylabel('SLM Y')
+zlabel('SLM Z')
+set(get(h,'label'),'string','FWHM \mum')
+
+fprintf(['FWHM in the typical useable volume (0 to 100um) is: ' num2str(mean(FWHM(depth>0 & depth<100))) 'um\n'])
 
 
 
@@ -2634,54 +2662,8 @@ title('SLM to SI')
 
 CoC.SItoSLM = SItoSLM;
 CoC.SLMtoSI = SLMtoSI;
-% %% Display the Hologram quality by depth
-% for i =1:size(fineVals,2)
-%     if ~isnan(fineVals(:,i))
-%         try
-%                     fTemp = fit(fineZs(i,:), fineVals(:,i), 'gauss1');
-%                     
-%                     depth(i) = fTemp.b1;
-%                     FWHM(i) = 2.3548 *fTemp.c1/sqrt(2);% 2*sqrt(2*log(2))*fTemp.c1;
-%                     disp([num2str(i) ': FWHM: ' num2str(FWHM(i))]);
-%         catch
-%             depth(i) = nan;
-%             FWHM(i) = nan;
-%         end
-%     else
-%        depth(i)=nan;
-%        FWHM(i)=nan;
-%     end
-% end
-
-%%
-FWHM = FWHMValBackup;
-depth = basXYZBackup(3,:); 
-slmXYZ = slmXYZBackup;
-
-figure(1001); clf
-subplot(1,2,1);
-plot(FWHM,depth,'o')
-% plot(FWHM,slmCoords(3,:),'o')
-
-ylabel('Axial Depth \mum')
-xlabel('FWHM \mum')
-ylim([-75 150])
-xlim([7.5 35])
-
-refline(0,0)
-refline(0,100)
 
 
-subplot(1,2,2);
-scatter3(slmXYZ(1,:),slmXYZ(2,:),slmXYZ(3,:),[],FWHM,'filled')
-caxis([10 30])
-h= colorbar;
-xlabel('SLM X')
-ylabel('SLM Y')
-zlabel('SLM Z')
-set(get(h,'label'),'string','FWHM \mum')
-
-fprintf(['FWHM in the typical useable volume (0 to 100um) is: ' num2str(mean(FWHM(depth>0 & depth<100))) 'um\n'])
 %% Calculate round trip errors
 numTest = 10000;
 
