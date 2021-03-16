@@ -2669,7 +2669,7 @@ numTest = 10000;
 
 rangeX = [0 511];%[0 511];
 rangeY = [0 511];%[0 511];
-rangeZ = [0 20];% Changed to match new Optotune Range 9/19/19 by Ian [0 80];
+rangeZ = [0 70];% Make Sure to match this to the correct range for this optotune;
 
 clear test;
 valX = round((rangeX(2)-rangeX(1)).*rand(numTest,1)+rangeX(1));
