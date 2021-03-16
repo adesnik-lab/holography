@@ -1,4 +1,8 @@
-function [CoC, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,Verbose);
+function [CoC, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,Verbose,axisHandle)
+if nargin<6
+    axisHandle = gca;
+end
+
 
 nIter = 500;
 totN = size(refAsk,1);
@@ -41,7 +45,8 @@ while go
 end
 disp([num2str(totN-numel(trialN)) ' of ' num2str(totN) ' Trials excluded due to excess error']);
 
-figure(10);clf
+subplot(axisHandle)
 scatter3(refGet(:,1),refGet(:,2),refGet(:,3),'o')
 hold on
 scatter3(Get(:,1),Get(:,2),Get(:,3),'*','r')
+legend('Observed','Calculated')

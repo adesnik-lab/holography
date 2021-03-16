@@ -1283,9 +1283,7 @@ refGet = (basXYZ(1:3,1:end-holdback))';
 %  SLMtoCam = function_3DCoC(refAsk,refGet,modelterms);
 
 errScalar = 2.5; %2.8;%2.5;
-figure(1286);clf;subplot(1,2,1)
 [SLMtoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
-title('SLM to Cam v1')
 
 Ask = refAsk;
 True = refGet;
@@ -1364,9 +1362,8 @@ refGet = (slmXYZ(1:3,1:end-holdback))';
 
 %  camToSLM = function_3DCoC(refAsk,refGet,modelterms);
 
-subplot(1,2,2)
 [camToSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
-title('cam to slm v1')
+
 
 Ask = (basXYZ(1:3,end-holdback:end))';
 True = (slmXYZ(1:3,end-holdback:end))';
@@ -1974,9 +1971,7 @@ refGet = (basXYZ4(1:3,1:end-holdback))';
 %  SLMtoCam = function_3DCoC(refAsk,refGet,modelterms);
 
 errScalar = 2.5; %2.8;%2.5;
-figure(1977);clf;subplot(1,2,1)
 [SLMtoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
-title('SLM to Cam v2')
 
 Ask = refAsk;
 True = refGet;
@@ -2055,9 +2050,8 @@ refGet = (slmXYZ4(1:3,1:end-holdback))';
 
 %  camToSLM = function_3DCoC(refAsk,refGet,modelterms);
 
-subplot(1,2,2)
 [camToSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
-title('Cam to SLM v2')
+
 
 Ask = (basXYZ4(1:3,end-holdback:end))';
 True = (slmXYZ4(1:3,end-holdback:end))';
@@ -2590,14 +2584,9 @@ refAsk = SIXYZ(1:3,:)';
 refGet = (cam3XYZ(1:3,:))';
 errScalar = 2.5;2.5;2.6;
 
-figure(2594);clf
-subplot(1,2,1)
 [SItoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,1);
-title('SI to Cam')
 
-subplot(1,2,2)
 [CamToSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,1);
-title('Cam to SI')
 
 CoC.CamToSI = CamToSI;
 CoC.SItoCam = SItoCam;
@@ -2624,13 +2613,12 @@ refAsk = SIXYZ(1:3,:)';
 refGet = (slm3XYZ(1:3,:))';
 errScalar =2;2.5;2.5;
 
-figure(2616);clf
+figure(2616);
 subplot(1,2,1)
 [SItoSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,1);
-title('SI to SLM')
+title('Forward')
 subplot(1,2,2)
 [SLMtoSI, trialN] = function_3DCoCIterative(refGet,refAsk,modelterms,errScalar,1);
-title('SLM to SI')
 
 CoC.SItoSLM = SItoSLM;
 CoC.SLMtoSI = SLMtoSI;
