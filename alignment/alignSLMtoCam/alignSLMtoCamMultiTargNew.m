@@ -59,7 +59,7 @@ function_BasPreview(Setup);
 
 disp('Waiting for msocket communication From DAQ')
 %then wait for a handshake
-srvsock = mslisten(42167);
+srvsock = mslisten(42144);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -104,7 +104,7 @@ pwr = 17; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoords = [.45 .45 -.05 1]%[0.45 0.45 0 1];
+slmCoords = [.4 .45 -.05 1];%[0.45 0.45 0 1];
 DEestimate = DEfromSLMCoords(slmCoords); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
@@ -150,6 +150,7 @@ temp = input('Ready to go (Press any key to continue)');
 position = Sutter.Reference;
 moveTime=moveTo(Sutter.obj,position);
 
+tManual = toc(tBegin);
 %% Create a random set of holograms or use flag to reload
 disp('First step Acquire Holograms')
 reloadHolos =0;
@@ -264,6 +265,7 @@ out.hololist=[];
 
 %% Collect background frames for signal to noise testing
 disp('Collecting Background Frames');
+tSI=tic;
 
 nBackgroundFrames = 20;
 
@@ -279,7 +281,7 @@ fprintf(['3\x03c3 above mean threshold ' num2str(threshHold,4) '\n'])
 
 %% Scan Image Planes Calibration
 disp('Begining SI Depth calibration, we do this first incase spots burn holes with holograms')
-tSI=tic;
+
 
 zsToUse = linspace(0,70,11);% %70 was about 125um on 3/11/21 %Newer optotune has more normal ranges 9/28/29; New Optotune has different range 9/19/19; [0:10:89]; %Scan Image Maxes out at 89
 
@@ -401,7 +403,7 @@ disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
 siT=toc(tSI);
 
 %%
-
+tFits=tic;
 disp('No Longer Putting off the actual analysis until later, Just saving for now')
 out.SIVals =SIVals;
 out.XYSI =XYSI;
@@ -414,7 +416,7 @@ save('TempSIAlign.mat','out')
 %Extract data to fit OptotuneZ as a function of camera XYZ
 
 disp('Fitting optotune to Camera... extracting optotune depths')
-tFits=tic;
+
 
 out.SIVals =SIVals;
 out.XYSI =XYSI;
@@ -475,7 +477,7 @@ SIpeakDepth(excl)=nan;
 % SIpeakVal(excl)=nan;
 % SIpeakDepth(excl)=nan;
 
-excl = SIpeakDepth<-50 | SIpeakDepth>150; %upper bound added 7/15/2020 -Ian
+excl = SIpeakDepth<-25 | SIpeakDepth>125; %upper bound added 7/15/2020 -Ian
 
 disp([num2str(sum(excl(:))) ' points excluded b/c too deep'])
 SIpeakVal(excl)=nan;
@@ -655,6 +657,7 @@ fitsT = toc(tFits);
 
 %% Coarse Data
 % npts=200;
+tstart=tic;%Coarse Data Timer
 
 disp('Begining Coarse Holo spot finding')
 coarsePts = 9; %odd number please
@@ -668,7 +671,7 @@ end
 
 vals = nan(coarsePts,npts);
 xyLoc = nan(2,npts);
-tstart=tic;
+
 sz = size(Bgd);
 sizeFactor = 1;% changed bc camera size change 7/16/2020 by Ian %will have to manually test that this is scalable by 4
 newSize = sz / sizeFactor;
@@ -1092,34 +1095,11 @@ end
 fprintf(['All Done. Total Took ' num2str(toc(multi_time)) 's\n']);
 multiT = toc(multi_time);
 
-% %% reshape matrix of values into vectors
-% peakValueList = peakValue(:);
-% peakDepthList = peakDepth(:);
-% peakFWHMList = peakFWHM(:);
-% 
-% [mx, mxi] = max(vals);
-% % current implementation does not threshold, should be included but more
-% % complicated here
-% c=0;
-% clear slmXYZ basXYZ basVal
-% % for a = 1:npts %prob works but not always 750 pts bc of exlcusings
-% %     c = c+1;
-% for i=1:planes
-%     holos_this_plane = numel(slmMultiCoordsIndiv{i});
-%     for j=1:holos_this_plane
-%         for targ = 1:size(slmMultiCoordsIndiv{i}{j},2)
-%             c = c+1;
-%             slmXYZ(:,c) = slmMultiCoordsIndiv{i}{j}(:,targ);
-%             target_ref = targListIndiv{i}{j}(targ);
-%             basXYZ2(1:2,c) = xyFine{i}{j}(targ);
-%             basXYZ(1:2,c) = xyzLoc(1:2,target_ref);
-%             basXYZ(3,c) = peakDepth{i}{j}(targ);
-%             basVal(c) = peakValue{i}{j}(targ);
-%         end
-%     end
-% end
+
 %%
 %% reshape matrix of values into vectors
+tIntermediateFine = tic; 
+
 peakValueList = peakValue(:);
 peakDepthList = peakDepth(:);
 peakFWHMList = peakFWHM(:);
@@ -1153,29 +1133,11 @@ for i=1:planes
             basXYZ1(3,c) = peakDepth{i}{j}(targ);
             basVal1(c) = peakValue{i}{j}(targ);
             
-%             % approach 2
-%             basXYZ2(1:2,c) = xyFine2{i}{j}(targ);
-%             basXYZ2(3,c) = peakDepth2{i}{j}(targ);
-%             basVal2(c) = peakValue2{i}{j}(targ);
 
 FWHMval(c) = peakFWHM{i}{j}(targ); %added 7/10/20 =Ian
          end
     end
 end
-
-% figure(41)
-% scatter3(basXYZ1(1,:),basXYZ1(2,:),basXYZ1(3,:), 'o', 'k')
-% hold on
-% scatter3(basXYZ2(1,:),basXYZ2(2,:),basXYZ2(3,:),'*','r')
-% legend('Method 1', 'Method 2')
-% title('Camera XYZ detected locations')
-% 
-% figure(45)
-% scatter3(basXYZ1_fine(1,:),basXYZ1_fine(2,:),basXYZ1(3,:), 'filled', 'r', 'MarkerFaceAlpha',0.7)
-% hold on
-% scatter3(basXYZ1(1,:),basXYZ1(2,:),basXYZ1(3,:), 'filled', 'g', 'MarkerFaceAlpha',0.7)
-% legend('XY from fine', 'XY from coarse')
-% title('Camera XYZ detected locations, same method')
 
 
 %% Choose your favorite method of getting XYZ coords
@@ -1225,9 +1187,7 @@ slmXYZBackup = slmXYZ(:,~excludeTrials);
 basXYZBackup = basXYZ(:,~excludeTrials);
 basValBackup = basVal(:,~excludeTrials);
 FWHMValBackup = FWHMVal(~excludeTrials); % added 7/20/2020 -Ian
-%basValBackup = basValBackup(:,1:386); % WH add to exlude trials with water loss
-%slmXYZBackup = slmXYZBackup(:,1:386); % did this on 1/29/20
-%basXYZBackup = basXYZBackup(:,1:386);
+
 %%
 f41=figure(41);
 clf(41)
@@ -1284,7 +1244,7 @@ refGet = (basXYZ(1:3,1:end-holdback))';
 %  SLMtoCam = function_3DCoC(refAsk,refGet,modelterms);
 
 errScalar = 2.5; %2.8;%2.5;
-figure(1286);clf;subplot(1,2,1)
+figure(1286);clf;
 [SLMtoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('SLM to Cam v1')
 
@@ -1593,6 +1553,8 @@ XYpts = reshape(XYpts,[2 numel(XYpts)/2]);
 
 disp([num2str(size(XYpts,2)) ' points per plane selected. ' num2str(size(XYpts,2)*numel(zsToBlast)) ' total'])
 
+intermediateFitsT = toc(tIntermediateFine);
+
 %% Simulate and create new Fine POints
 % do a CoC to get more points to shoot
 
@@ -1638,7 +1600,7 @@ expectBas = expectBas(~excludeMe,:);
 % generate multi-target holos that are spread apart
 multiholosize=20;
 planes = 7; 
-holosperplane = 5;
+holosperplane = 10;
 ntotalPoints = multiholosize * planes * holosperplane;
 disp(['Using ' num2str(ntotalPoints) ' points in round 2.'])
 
@@ -1874,6 +1836,8 @@ fineT = toc(denseFineTimer);
 disp(['Dense Fine Fits took ' num2str(fineT) 's']);
 
 %% New Fits with denser Fine
+denseFitsTimer = tic;
+
 c=0;
 slmXYZextra = [];
 baxXYZextra =[];
@@ -2013,7 +1977,7 @@ True = (basXYZ4(1:3,end-holdback:end))';
 Get = function_Eval3DCoC(SLMtoCam,Ask);
 
 figure(101);clf
-subplot(1,3,1)
+subplot(1,2,1)
 scatter3(True(:,1),True(:,2),True(:,3),'*','k')
 hold on
 scatter3(Get(:,1), Get(:,2), Get(:,3),'o','r')
@@ -2231,31 +2195,21 @@ set(get(h,'label'),'string','FWHM \mum')
 fprintf(['FWHM in the typical useable volume (0 to 100um) is: ' num2str(mean(FWHM(depth>0 & depth<100))) 'um\n'])
 
 
-
+finalFitsT = toc(denseFitsTimer);
 %% Plot Hole Burn Stuff
+tCompileBurn = tic;
+
 figure(6);
 scatter(XYpts(1,:),XYpts(2,:),'o');
 
-
 figure(4); clf
-
 
 clear XYtarg SLMtarg
 for i = 1:numel(zsToBlast)
-    
-    %offset the xy points each Z plane
-    
-    %      XYuse = bsxfun(@plus,XYpts,([xOff yOff].*(i-1))');
-    
     a = mod(i-1,gridSide);
     b = floor((i-1)/gridSide);
-    %      [a b]
-    
-    XYuse = bsxfun(@plus,XYpts,([xOff*a yOff*b])');
-    
-    
-    
-    
+
+    XYuse = bsxfun(@plus,XYpts,([xOff*a yOff*b])');    
     optoZ = zsToBlast(i);
     
     zOptoPlane = ones([1 size(XYuse,2)])*optoZ;
@@ -2273,8 +2227,7 @@ for i = 1:numel(zsToBlast)
     estPower(ExcludeBurns)=[];
     XYuse(:,ExcludeBurns)=[];
     zOptoPlane(ExcludeBurns)=[];
-    estCamZ(ExcludeBurns)=[];
-%     
+    estCamZ(ExcludeBurns)=[];     
     
     XYtarg{i} = [XYuse; zOptoPlane];
     SLMtarg{i} = [estSLM estPower];
@@ -2286,11 +2239,9 @@ for i = 1:numel(zsToBlast)
     subplot (1,2,2)
     scatter3(estSLM(:,1),estSLM(:,2),estSLM(:,3),[],estPower,'filled')
     
-    disp([num2str(min(estSLM(:,3))) ' ' num2str(max(estSLM(:,3)))])
-    
+    disp([num2str(min(estSLM(:,3))) ' ' num2str(max(estSLM(:,3)))])  
     hold on
 end
-
 
 subplot(1,2,1)
 title('Targets in Camera Space')
@@ -2308,7 +2259,6 @@ c.Label.String = 'Estimated Power';
 
 %% Burn Holes
 disp('Compiling Holos To Burn')
-tCompileBurn = tic;
 
 clear tempHololist
 for k = 1:numel(zsToBlast)
@@ -2347,7 +2297,6 @@ while ~strcmp(num2str(invar),'3') %stupid cludge so that [] read as false
 end
 disp('linked')
 
-%mssend(SISocket,'hSI.startGrab()');
 %setup acquisition
 
 numVol =5; %number of SI volumes to average
@@ -2363,12 +2312,8 @@ mssend(SISocket,'hSI.hBeams.powers = 16;'); %power on SI laser. important no to 
 mssend(SISocket,'hSI.extTrigEnable = 0;'); %savign
 mssend(SISocket,'hSI.hChannels.loggingEnable = 1;'); %savign
 mssend(SISocket,'hSI.hScan2D.logFilePath = ''D:\Calib\Temp'';');
-% mssend(SISocket,'hSI.hScan2D.logFileCounter = 1;');
 mssend(SISocket,['hSI.hScan2D.logFileStem = ' baseName ';']);
 mssend(SISocket,'hSI.hScan2D.logFileCounter = 1;');
-
-
-% mssend(SISocket,'1+2');
 
 mssend(SISocket,['hSICtl.updateView;']);
 
@@ -2391,7 +2336,6 @@ disp('completed parameter set')
 disp('Acquire Baseline')
 
 mssend(SISocket,'hSI.startGrab()');
-%clear invar
 invar = msrecv(SISocket,0.01);
 while ~isempty(invar)
     invar = msrecv(SISocket,0.01);
@@ -2412,7 +2356,6 @@ while wait
     end
 end
 
-
 burnPowerMultiplier = 10;%change to 10 3/11/21 %previously 5; added by Ian 9/20/19
 burnTime = 0.5; %in seconds, very rough and not precise
 
@@ -2425,9 +2368,7 @@ for k=1:numel(zsToBlast)%1:numel(zsToBlast)
     position = Sutter.Reference;
     position(3) = position(3) + (offset);
     diff = currentPosition(3)-position(3);
-    %           tic;
     moveTime=moveTo(Sutter.obj,position);
-    %           toc;
     if k==1
         pause(1)
     else
@@ -2469,8 +2410,7 @@ for k=1:numel(zsToBlast)%1:numel(zsToBlast)
         while ~strcmp(invar,'gotit')
             invar = msrecv(masterSocket,0.01);
         end
-
-        
+ 
         mssend(SISocket,'hSI.startGrab()');
         invar = msrecv(SISocket,0.01);
         while ~isempty(invar)
@@ -2493,10 +2433,7 @@ for k=1:numel(zsToBlast)%1:numel(zsToBlast)
             end
         end
         disp([' Took ' num2str(toc(t)) 's'])
-    end
-    
-    
-    
+    end   
 end
 
 position = Sutter.Reference;
@@ -2610,13 +2547,12 @@ loadT = toc(tLoad);
 
 
 %% do non-cv SI to cam calculation
+burnFitsTimer = tic;
+
 modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
-    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;];%...
-    
-%     
+    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;];%...    
 %     2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
 %     2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
-
 
 cam3XYZ = [XYtarg{:};];
 SIXYZ = SIXYZbackup;
@@ -2626,11 +2562,6 @@ cam3XYZ=cam3XYZ(:,1:size(SIXYZ,2));
 excl = SIXYZ(1,:)<=5 | SIXYZ(1,:)>=507| SIXYZ(2,:)<=5 | SIXYZ(2,:)>=507;
 cam3XYZ(:,excl)=[];
 SIXYZ(:,excl)=[];
-
-% testSet = randperm(size(SIXYZ,2),25);
-% otherSet = ones([size(SIXYZ,2) 1]);
-% otherSet(testSet)=0;
-% otherSet = logical(otherSet);
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (cam3XYZ(1:3,:))';
@@ -2846,6 +2777,8 @@ caxis([0 15])
 colorbar
 title('Simulated Z error, 1st methods')
 
+burnFitsT = toc(burnFitsTimer);
+
 %% Save Output Function
 pathToUse = 'C:\Users\Holography\Desktop\SLM_Management\Calib_Data';
 disp('Saving...')
@@ -2857,17 +2790,21 @@ save(fullfile(pathToUse,'ActiveCalib.mat'),'CoC')
 
 
 times.saveT = toc(tSave);
+times.burnFitsT = burnFitsT;
 times.loadT = loadT;
 times.MovT = MovT;
 times.burnT = burnT;
 times.compileBurnT = compileBurnT;
-times.fitsT = fitsT;
-times.fineT = fineT; %Second Dense Fine
-times.multiT = multiT; %first pass fine fit
+times.finalFitsT = finalFitsT; %Final Fits Camera to SLM
+times.finalFineT = fineT; %Second Dense Fine
+times.intermediateFitsT = intermediateFitsT;
+times.intermediateT = multiT; %first pass fine fit
+times.coarseFitsT = fitsT; %Coarse
 times.coarseT = coarseT; %Coarse Fit
 times.siT = siT;
 times.singleCompileT = singleCompileT;
 times.multiCompileT = multiCompileT;
+times.manualT = tManual; %time spent doing manual setup. 
 
 totT = toc(tBegin);
 times.totT = totT;
@@ -2891,3 +2828,4 @@ try function_stopBasCam(Setup); end
 
 
         
+ 
