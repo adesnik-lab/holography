@@ -1,4 +1,15 @@
 % Run this first, then run the DiffractiveLUT.exe
+% This is the manual version, would be easy to make automatic with USB
+% cable for power meter.
+
+directions = ['\n\nTo collect the LUT using the zero order, place a pinhole at \n'...
+              'the zero order (remove zero-order) and close it so it is small \n'...
+              'enough to only let the light from the zero-order in. Then place the power \n'...
+              'meter behind the pinhole.\n'...
+              '\nThen collect the powers for each. Units (mW or W) don''t matter, just \n'...
+              'be consistent. Use enough power to get a good curve but not enough to burn the SLM.\n'...
+              '\nPress ENTER to continue...\n'];
+fprintf(directions)
 
 % Example usage of Blink_SDK_C.dll
 % Meadowlark Optics Spatial Light Modulators
@@ -90,20 +101,53 @@ else
             %YOU FILL IN HERE...FIRST: read from your specific AI board, note it might help to clean up noise to average several readings
             %SECOND: store the measurement in your AI_Intensities array
             AI_Intensities(AI_Index, 1) = Gray; %This is the varable graylevel you wrote to collect this data point
-            val = input('Enter power in mW: '); % HERE YOU NEED TO REPLACE 0 with YOUR MEASURED VALUE FROM YOUR ANALOG INPUT BOARD
-            AI_Intensities(AI_Index, 2) = val;
-            cs = [cs c];
-            vals = [vals val];
-            scatter(cs, vals)
+            
+            while 1
+                try
+                    val = input('Enter power in mW: '); % HERE YOU NEED TO REPLACE 0 with YOUR MEASURED VALUE FROM YOUR ANALOG INPUT BOARD
+                catch
+                    disp('You must input a number. Try again...')
+                    continue
+                end
+                
+                if isempty(val)
+                    disp('You must input a number. Try again...')
+                    continue
+                end
+                
+                AI_Intensities(AI_Index, 2) = val;
+                cs = [cs c];
+                vals = [vals val];
+                scatter(cs, vals)
+                break
+                
+            end
+            
+
             
             AI_Index = AI_Index + 1;
         
         end
         
-        % dump the AI measurements to a csv file
-        filename = ['Raw' num2str(Region) '.csv'];
-        csvwrite(filename, AI_Intensities);
-        save('RawValuesLUT','AI_Intensities')
+        % dump the AI measurements to a csv file and mat file
+        % you only need the csv but it's helpful to have the mat in case
+        % you need to edit it
+        
+        if ispc
+            usrhome = getenv('USERPROFILE');
+        else
+            usrhome = getenv('HOME');
+        end
+        
+        lut_folder = fullfile(usrhome, 'Desktop', 'SLM_LUT_files');
+        status = mkdir(lut_folder);
+        
+        
+        filename_csv = fullfile(lut_folder, ['Raw' num2str(Region) '.csv']);
+        csvwrite(filename_csv, AI_Intensities);
+        
+        filename_mat = fullfile(lut_folder, 'RawValuesLUT.mat');
+        save(filename_mat,'AI_Intensities')
     end
 	
      
