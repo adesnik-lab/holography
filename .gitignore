@@ -1,3 +1,9 @@
+# OS specific files
+*.DS_Store
+
+# MATLAB files
 *.asv
 *.mat
-alignment/alignSLMtoCam/sdk_debug.txt
+
+# sdk_debug file from Meadowlark DLL
+sdk_debug.txt
