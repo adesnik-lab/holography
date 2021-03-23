@@ -1037,24 +1037,7 @@ for i = 1:planes%1:planes
                 xyFine{i}{j}(targ) = nan;
             end
            
-%             try
-%                 % method 2 - try to redected XY from multi-target hologram
-%                 dimx = max((holo_x-range),1):min((holo_x+range),size(frame,1));
-%                 dimy =  max((holo_y-range),1):min((holo_y+range),size(frame,2));
-%                 targ_stack2 = squeeze(mean(mean(dataUZ(dimx,dimy,:))));
-%                 mxProj2 = max(dataUZ(dimX,dimY,:),[],3);
-%                 [ holo_x2,holo_y2 ] =function_findcenter(mxProj2 );
-%                 xyFine2{i}{j}(:,targ) = [holo_x2,holo_y2];
-%                 
-%             catch
-%                 targ_stack2 = nan(finePts, 1);
-%                 xyFine2{i}{j}(targ) = nan;
-%             end
-            
-                % this is wrong
-                %targVals(:,targ) = targ_stack;
-                %this does not work yet
-                %depthIndex = find(targ_stack == max(targVals),1);
+%            
 
             try
                 ff = fit(fineUZ', targ_stack, 'gauss1');
@@ -1067,18 +1050,7 @@ for i = 1:planes%1:planes
                 peakDepth{i}{j}(targ) = NaN;
                 peakFWHM{i}{j}(targ) = NaN;
             end
-            
-%             try
-%                 ff = fit(fineUZ', targ_stack2, 'gauss1');
-%                 peakValue2{i}{j}(targ) = ff.a1;
-%                 peakDepth2{i}{j}(targ) = ff.b1;
-%                 peakFWHM2{i}{j}(targ) = 2*sqrt(2*log(2))*ff.c1/sqrt(2);
-%             catch
-%                 disp(['Error on fit (method 2)! Holo: ', num2str(j), ' Target: ', num2str(targ)])
-%                 peakValue2{i}{j}(targ) = NaN;
-%                 peakDepth2{i}{j}(targ) = NaN;
-%                 peakFWHM2{i}{j}(targ) = NaN;
-%             end
+                      
         
         end
         
