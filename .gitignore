@@ -1,2 +1,14 @@
-*.asv
+# OS specific files
+*.DS_Store
+
+# MATLAB files
 *.mat
+# autosaves
+*.asv
+*.m~
+
+# sdk_debug file from Meadowlark DLL
+sdk_debug.txt
+
+# CSV that gets written by the LUT calibration
+Raw*.csv
