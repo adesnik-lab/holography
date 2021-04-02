@@ -22,6 +22,9 @@ addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Basler\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\IanTestCode\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Will test code\'));
+addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\ThorCam\'));
+addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\CameraFunctions\'));
+
 disp('done pathing')
 
 %% Setup Stuff
@@ -33,6 +36,9 @@ Setup.GSoffset=0;
 Setup.verbose =0;
 Setup.useGPU =1;
 
+Setup.useThorCam =1;
+Setup.maxFramesPerAcquire = 3; %set to 0 for unlimited (frames will return will be
+Setup.camExposureTime = 10000;
 
 if Setup.useGPU
     disp('Getting gpu...'); %this can sometimes take a while at initialization
@@ -50,7 +56,7 @@ try function_stopBasCam(Setup); end
 [Setup] = function_startBasCam(Setup);
 disp('Ready')
 
-if UseThorCam
+if Setup.useThorCam
     castImg = @uint16;
     castAs = 'uint16';
     camMax = 65535;
@@ -69,7 +75,7 @@ function_BasPreview(Setup);
 
 disp('Waiting for msocket communication From DAQ')
 %then wait for a handshake
-srvsock = mslisten(42144);
+srvsock = mslisten(42102);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -110,7 +116,7 @@ disp('communication from Master To SI Established');
 
 %% Set Power Levels
 
-pwr = 17; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
+pwr = 100; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
@@ -1849,7 +1855,7 @@ FWHMVal4 = FWHMValExtra;%added 7/20/2020 -Ian
 
 excludeTrials = all(basXYZ4(1:2,:)==[1 1]'); %hayley's understanding: if bas x and y are both one, exclude this trial
 
-excludeTrials = excludeTrials | basVal4>260; %max of this camera is 255
+% excludeTrials = excludeTrials | basVal4>260; %max of this camera is 255
 
 basDimensions = size(Bgdframe);
 excludeTrials = excludeTrials | basXYZ4(1,:)>=basDimensions(1)-1;
@@ -2338,7 +2344,7 @@ while wait
     end
 end
 
-burnPowerMultiplier = 10;%change to 10 3/11/21 %previously 5; added by Ian 9/20/19
+burnPowerMultiplier =3; 10;%change to 10 3/11/21 %previously 5; added by Ian 9/20/19
 burnTime = 0.5; %in seconds, very rough and not precise
 
 disp('Now Burning')
