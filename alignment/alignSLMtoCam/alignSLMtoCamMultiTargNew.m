@@ -50,6 +50,16 @@ try function_stopBasCam(Setup); end
 [Setup] = function_startBasCam(Setup);
 disp('Ready')
 
+if UseThorCam
+    castImg = @uint16;
+    castAs = 'uint16';
+    camMax = 65535;
+else
+    castImg = @uint8;
+    castAs = 'uint8';
+    camMax = 255;
+end
+
 %% look for objective in 1p
 
 function_BasPreview(Setup);
@@ -270,7 +280,7 @@ tSI=tic;
 nBackgroundFrames = 20;
 
 Bgdframe = function_BasGetFrame(Setup,nBackgroundFrames);% function_Basler_get_frames(Setup, nBackgroundFrames );
-Bgd = uint8(mean(Bgdframe,3));
+Bgd = castImg(mean(Bgdframe,3));
 BGD = mean(Bgdframe,3);
 meanBgd = mean(single(Bgdframe(:)));
 stdBgd =  std(single(Bgdframe(:)));
@@ -355,7 +365,7 @@ for k =1:numel(zsToUse)
         % changed to 10 on 1/28/20 by WH to get better optotune calib
         % now a variable above... 7/15/2020 -Ian
         frame = function_BasGetFrame(Setup,framesToAcquire);%function_Basler_get_frames(Setup, 3 );
-        %         frame = uint8(mean(frame,3));
+        %         frame = castImg(mean(frame,3));
         %         frame =  max(frame-Bgd,0);
         
         frame = (mean(frame,3)); %no cast to uint8
@@ -676,9 +686,9 @@ sz = size(Bgd);
 sizeFactor = 1;% changed bc camera size change 7/16/2020 by Ian %will have to manually test that this is scalable by 4
 newSize = sz / sizeFactor;
 
-% dataUZ2 = uint8(zeros([newSize  numel(coarseUZ) npts]));
-dataUZ2 = zeros([newSize  numel(coarseUZ) npts], 'uint8');
-maxProjections=uint8(zeros([newSize  npts]));
+% dataUZ2 = castImg(zeros([newSize  numel(coarseUZ) npts]));
+dataUZ2 = zeros([newSize  numel(coarseUZ) npts], castAs);
+maxProjections=castImg(zeros([newSize  npts]));
 
 range=round(16 / sizeFactor);
 
@@ -716,7 +726,7 @@ for i = 1:numel(coarseUZ)
             invar = msrecv(masterSocket,0.01);
         end
         frame = function_BasGetFrame(Setup,numFramesCoarseHolo);% numFramesCoarseHolo added to be used elsewhere 7/16/2020 -Ian
-        frame = uint8(mean(frame,3));
+        frame = castImg(mean(frame,3));
         
         mssend(masterSocket,[0 1 1]);
         invar=[];
@@ -960,7 +970,7 @@ for i = 1:planes%1:planes
         %expected_xyz = xyzLoc(:,target_ref);
         
         fineUZ = linspace(expected_z-fineRange,expected_z+fineRange,finePts);
-        dataUZ = uint8(nan([size(Bgdframe(:,:,1))  finePts]));
+        dataUZ = castImg(nan([size(Bgdframe(:,:,1))  finePts]));
         
         fprintf('Depth: ')
         
@@ -984,7 +994,7 @@ for i = 1:planes%1:planes
             
             % grab a frame, convert to uint8
             frame = function_BasGetFrame(Setup,10); %changed from 5 on 7/15/20
-            frame = uint8(mean(frame,3));
+            frame = castImg(mean(frame,3));
             
             % turn off the laser
             requestPower(0,masterSocket)
@@ -1142,7 +1152,7 @@ FWHMVal = FWHMBackup2;%added 7/20/2020 -Ian
 
 excludeTrials = all(basXYZ(1:2,:)==[1 1]'); %hayley's understanding: if bas x and y are both one, exclude this trial
 
-excludeTrials = excludeTrials | basVal>260; %max of this camera is 255
+excludeTrials = excludeTrials | basVal>camMax; %max of this camera is 255
 
 basDimensions = size(Bgdframe);
 excludeTrials = excludeTrials | basXYZ(1,:)>=basDimensions(1)-1;
@@ -1680,7 +1690,7 @@ for i = 1:planes
 
     % for every holo on that plane
 %     for j = 1:holos_this_plane
-        dataUZPlane = uint8(nan([size(Bgdframe(:,:,1)) finePts holos_this_plane]));
+        dataUZPlane = castImg(nan([size(Bgdframe(:,:,1)) finePts holos_this_plane]));
         
         % set power
 %         multi_pwr = size(slm_coords{i}{j},1) * pwr;        
@@ -1721,7 +1731,7 @@ for i = 1:planes
                 
                 % grab a frame, convert to uint8
                 frame = function_BasGetFrame(Setup,3);
-                frame = uint8(mean(frame,3));
+                frame = castImg(mean(frame,3));
                 
                 % turn off the laser
                 requestPower(0,masterSocket)
