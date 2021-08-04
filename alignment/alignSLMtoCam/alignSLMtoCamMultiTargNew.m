@@ -762,7 +762,7 @@ moveTime=moveTo(Sutter.obj,position);
 pause(0.1)
 %%
 disp('Calculating Depths and Vals')
-range=ceil(15/sizeFactor);%Should be scaled by sizeFactor, also shrunk -Ian 7/16/2020 %Range for Hologram analysis window Changed to 5 9/16/19 by Ian
+range=ceil(5/sizeFactor);%Should be scaled by sizeFactor, also shrunk -Ian 7/16/2020 %Range for Hologram analysis window Changed to 5 9/16/19 by Ian
 for k=1:npts
     dataUZ = dataUZ2(:,:,:,k);
     mxProj = max(dataUZ,[],3);
