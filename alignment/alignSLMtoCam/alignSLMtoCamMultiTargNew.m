@@ -698,7 +698,6 @@ newSize = sz / sizeFactor;
 dataUZ2 = zeros([newSize  numel(coarseUZ) npts], castAs);
 maxProjections=castImg(zeros([newSize  npts]));
 
-range=round(16 / sizeFactor);
 
 numFramesCoarseHolo = 3; %number of frames to collect here. added 7/16/2020 -Ian
 
