@@ -24,6 +24,7 @@ addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\IanTestCode\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Will test code\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\ThorCam\'));
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\CameraFunctions\'));
+addpath(genpath('C:\Users\Holography\Desktop\holography'));
 
 disp('done pathing')
 
@@ -54,7 +55,7 @@ try; function_close_sutter( Sutter ); end
 
 try function_stopBasCam(Setup); end
 [Setup] = function_startBasCam(Setup);
-disp('Ready')
+
 
 if Setup.useThorCam
     castImg = @uint16;
@@ -65,7 +66,7 @@ else
     castAs = 'uint8';
     camMax = 255;
 end
-
+disp('Ready')
 %% look for objective in 1p
 
 function_BasPreview(Setup);
@@ -73,9 +74,10 @@ function_BasPreview(Setup);
 
 %% Make mSocketConnections with DAQ and SI Computers
 
+%run this first then code on daq
 disp('Waiting for msocket communication From DAQ')
 %then wait for a handshake
-srvsock = mslisten(42102);
+srvsock = mslisten(42107);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -95,9 +97,11 @@ while ~strcmp(invar,'B')
 end
 disp('communication from Master To Holo Established');
 %%
+
+%run this code first, then 'autoCalibSI'
 disp('Waiting for msocket communication to ScanImage Computer')
 %then wait for a handshake
-srvsock2 = mslisten(4239);
+srvsock2 = mslisten(42039);
 SISocket = msaccept(srvsock2,15);
 msclose(srvsock2);
 sendVar = 'A';
@@ -116,7 +120,7 @@ disp('communication from Master To SI Established');
 
 %% Set Power Levels
 
-pwr = 100; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
+pwr = 25; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
@@ -183,8 +187,8 @@ if ~reloadHolos
     
     %ranges set by exploration moving holograms looking at z1 fov.
     %updated 3/10/21 (new SLM)
-    slmXrange = [0.2 0.85];%9/19/19 [.2 .9]; %[0.125 0.8]; %[0.5-RX 0.4+RX]; %you want to match these to the size of your imaging area
-    slmYrange = [0.25 0.85];%9/21/20 [.05 0.9];%9/19/19 [.01 .7];% [0.075 0.85];%[0.5-RY 0.5+RY];
+    slmXrange = [0.1 0.9];%7/23/21 [.2 .9]; %[0.125 0.8]; %[0.5-RX 0.4+RX]; %you want to match these to the size of your imaging area
+    slmYrange = [0.05 0.95];%7/23/21 [.05 0.9];%9/19/19 [.01 .7];% [0.075 0.85];%[0.5-RY 0.5+RY];
     
     % set Z range
     slmZrange = [-.09 .02];%3/11/21 IO.  %%[-0.02 0.07];%9/19/19 % [-0.1 0.15];
@@ -760,7 +764,7 @@ moveTime=moveTo(Sutter.obj,position);
 pause(0.1)
 %%
 disp('Calculating Depths and Vals')
-range=ceil(15/sizeFactor);%Should be scaled by sizeFactor, also shrunk -Ian 7/16/2020 %Range for Hologram analysis window Changed to 5 9/16/19 by Ian
+range=ceil(5/sizeFactor);%Should be scaled by sizeFactor, also shrunk -Ian 7/16/2020 %Range for Hologram analysis window Changed to 5 9/16/19 by Ian
 for k=1:npts
     dataUZ = dataUZ2(:,:,:,k);
     mxProj = max(dataUZ,[],3);
@@ -1170,6 +1174,7 @@ excludeTrials = excludeTrials | basXYZ(3,:)>190;
 excludeTrials = excludeTrials | any(isnan(basXYZ(:,:)));
 excludeTrials = excludeTrials | basVal<1; %8/3 hayley add 5; Ian ammend to 1 9/13
 excludeTrials = excludeTrials | basVal>(mean(basVal)+3*std(basVal)); %9/13/19 Ian Add
+excludeTrials = excludeTrials | basVal>700;
 
 slmXYZBackup = slmXYZ(:,~excludeTrials);
 basXYZBackup = basXYZ(:,~excludeTrials);
@@ -1224,7 +1229,7 @@ reOrder = randperm(size(slmXYZ,2));
 slmXYZ = slmXYZ(:,reOrder);
 basXYZ = basXYZ(:,reOrder);
 
-holdback = 100;%50;
+holdback = 50;%50;
 
 refAsk = (slmXYZ(1:3,1:end-holdback))';
 refGet = (basXYZ(1:3,1:end-holdback))';
@@ -1313,6 +1318,7 @@ refGet = (slmXYZ(1:3,1:end-holdback))';
 
 %  camToSLM = function_3DCoC(refAsk,refGet,modelterms);
 
+figure(102)
 subplot(1,2,2)
 [camToSLM, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('cam to slm v1')
@@ -1867,6 +1873,7 @@ excludeTrials = excludeTrials | basXYZ4(3,:)>190;
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
 excludeTrials = excludeTrials | basVal4<1; %8/3 hayley add 5; Ian ammend to 1 9/13
 excludeTrials = excludeTrials | basVal4>(mean(basVal4)+3*std(basVal4)); %9/13/19 Ian Add
+excludeTrials = excludeTrials | basVal4>700;
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -2553,7 +2560,7 @@ SIXYZ(:,excl)=[];
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (cam3XYZ(1:3,:))';
-errScalar = 2.;2.5;2.6;
+errScalar = 2.5;2.5;2.6;
 
 figure(2594);clf
 subplot(1,2,1)
@@ -2587,7 +2594,7 @@ SIXYZ(:,excl)=[];
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (slm3XYZ(1:3,:))';
-errScalar =2;2.5;2.5;
+errScalar =2.25;2.5;2.5;
 
 figure(2616);clf
 subplot(1,2,1)
