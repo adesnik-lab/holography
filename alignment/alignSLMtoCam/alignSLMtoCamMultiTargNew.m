@@ -206,8 +206,9 @@ if ~reloadHolos
             1];
     end
     
-    figure(1);scatter3(slmCoords(1,:),slmCoords(2,:),slmCoords(3,:),'o')
+    figure(205);scatter3(slmCoords(1,:),slmCoords(2,:),slmCoords(3,:),'o')
     drawnow;
+    title('Holograms in SLM space')
     %%compile random holograms
     
     slmCoords(3,:) = round(slmCoords(3,:),3); %Added 3/15/21 by Ian for faster compute times
@@ -273,7 +274,8 @@ else
     slmCoords = out.slmCoords;
     npts = size(slmCoords,2);
     multiHolo = out.multiHolo;
-    figure(1);scatter3(slmCoords(1,:),slmCoords(2,:),slmCoords(3,:),'o')
+    figure(273);scatter3(slmCoords(1,:),slmCoords(2,:),slmCoords(3,:),'o')
+        title('Pre Loaded Holograms in SLM space')
     
 end
 
@@ -700,7 +702,6 @@ newSize = sz / sizeFactor;
 dataUZ2 = zeros([newSize  numel(coarseUZ) npts], castAs);
 maxProjections=castImg(zeros([newSize  npts]));
 
-range=round(16 / sizeFactor);
 
 numFramesCoarseHolo = 3; %number of frames to collect here. added 7/16/2020 -Ian
 
