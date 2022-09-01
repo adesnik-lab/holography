@@ -1,3 +1,8 @@
+counts = 100;
+
+v = visa('ni', 'USB0::0x1313::0x8078::P0031082::INSTR');
+fopen(v);
+
 % Run this first, then run the DiffractiveLUT.exe
 % This is the manual version, would be easy to make automatic with USB
 % cable for power meter.
@@ -55,7 +60,8 @@ else
     fprintf('Found %u SLM controller(s)\n', num_boards_found.value);
     
     % To measure the raw response we want to disable the LUT by loading a linear LUT
-    lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\linear.LUT';
+%     lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\linear.LUT';
+    lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\slm819_at1035_alt.LUT';
     calllib('Blink_C_wrapper', 'Load_LUT_file',board_number, lut_file);
     
     %set some dimensions
@@ -102,30 +108,23 @@ else
             %SECOND: store the measurement in your AI_Intensities array
             AI_Intensities(AI_Index, 1) = Gray; %This is the varable graylevel you wrote to collect this data point
             
-            while 1
-                try
-                    val = input('Enter power in mW: '); % HERE YOU NEED TO REPLACE 0 with YOUR MEASURED VALUE FROM YOUR ANALOG INPUT BOARD
-                catch
-                    disp('You must input a number. Try again...')
-                    continue
-                end
-                
-                if isempty(val)
-                    disp('You must input a number. Try again...')
-                    continue
-                end
-                
-                AI_Intensities(AI_Index, 2) = val;
-                cs = [cs c];
-                vals = [vals val];
-                scatter(cs, vals)
-                xlim([0 255])
-                break    
-            end
+            pause(2)
+            fprintf(v,['sense:average:count ',num2str(counts)]);
+            set(v,'timeout',3+1.1*counts*3/1000)
+            ret = query(v,'read?');
+            val = str2num(ret)*1000;
+            disp(['Got Measurement: ' num2str(val)])
+
+            AI_Intensities(AI_Index, 2) = val;
+            cs = [cs c];
+            vals = [vals val];
+            scatter(cs, vals)
+            xlim([0 255])
 
             AI_Index = AI_Index + 1;
         
         end
+        disp('all done. saving...')
         
         % dump the AI measurements to a csv file and mat file
         % you only need the csv but it's helpful to have the mat in case
@@ -142,10 +141,10 @@ else
         
         
         filename_csv = fullfile(lut_folder, ['Raw' num2str(Region) '.csv']);
-        csvwrite(filename_csv, AI_Intensities);
+%         csvwrite(filename_csv, AI_Intensities);
         
         filename_mat = fullfile(lut_folder, 'RawValuesLUT.mat');
-        save(filename_mat,'AI_Intensities')
+%         save(filename_mat,'AI_Intensities')
     end
 	
      
@@ -161,3 +160,5 @@ end
 if libisloaded('ImageGen')
     unloadlibrary('ImageGen');
 end
+
+disp('data saved!')
