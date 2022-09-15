@@ -1,8 +1,11 @@
-counts = 100;
+hw = instrhwinfo('visa', 'ni');
+hw.ObjectConstructorName
+%%
+counts = 500;
 
 v = visa('ni', 'USB0::0x1313::0x8078::P0031082::INSTR');
 fopen(v);
-
+%%
 % Run this first, then run the DiffractiveLUT.exe
 % This is the manual version, would be easy to make automatic with USB
 % cable for power meter.
@@ -12,9 +15,10 @@ directions = ['\n\nTo collect the LUT using the zero order, place a pinhole at \
               'enough to only let the light from the zero-order in. Then place the power \n'...
               'meter behind the pinhole.\n'...
               '\nThen collect the powers for each. Units (mW or W) don''t matter, just \n'...
-              'be consistent. Use enough power to get a good curve but not enough to burn the SLM.\n'...
-              '\nPress ENTER to continue...\n'];
+              'be consistent. Use enough power to get a good curve but not enough to burn the SLM.\n'];
+
 fprintf(directions)
+input('Press ENTER to continue: ')
 
 % Example usage of Blink_SDK_C.dll
 % Meadowlark Optics Spatial Light Modulators
@@ -59,10 +63,7 @@ else
     disp('Blink SDK was successfully constructed');
     fprintf('Found %u SLM controller(s)\n', num_boards_found.value);
     
-    % To measure the raw response we want to disable the LUT by loading a linear LUT
-%     lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\linear.LUT';
-    lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\slm819_at1035_alt.LUT';
-    calllib('Blink_C_wrapper', 'Load_LUT_file',board_number, lut_file);
+
     
     %set some dimensions
     height = calllib('Blink_C_wrapper', 'Get_image_height', board_number);
@@ -70,20 +71,47 @@ else
     NumDataPoints = 256;
     NumRegions = 1;
     
+    % To measure the raw response we want to disable the LUT by loading a linear LUT
+    % To measure the raw optical response we want to linearly increment the voltage on the pixels by using a linear LUT
+    if ((width == 512) && (depth == 8))
+		calllib('Blink_C_wrapper', 'Load_LUT_file', board_number, 'C:\\Program Files\\Meadowlark Optics\\Blink OverDrive Plus\\LUT Files\\512x512_linearVoltage.LUT');
+    end
+    if ((width == 512) && (depth == 16))
+		calllib('Blink_C_wrapper', 'Load_LUT_file', board_number, 'C:\\Program Files\\Meadowlark Optics\\Blink OverDrive Plus\\LUT Files\\512x512_16bit_linearVoltage.LUT');
+    end
+    if width == 1920
+		calllib('Blink_C_wrapper', 'Load_LUT_file', board_number, 'C:\\Program Files\\Meadowlark Optics\\Blink OverDrive Plus\\LUT Files\\1920x1152_linearVoltage.LUT');
+    end
+    if width == 1024
+		calllib('Blink_C_wrapper', 'Load_LUT_file', board_number, 'C:\\Program Files\\Meadowlark Optics\\Blink OverDrive Plus\\LUT Files\\1024x1024_linearVoltage.LUT');
+    end
+    calllib('Blink_C_wrapper', 'Load_LUT_file',board_number, lut_file);
+    
     %allocate arrays for our images
     Image = libpointer('uint8Ptr', zeros(width*height,1));
 
     % Create an array to hold measurements from the analog input (AI) board
     AI_Intensities = zeros(NumDataPoints,2);
     
+    % ***ALWAYS*** use a blank wavefront correction when calibrating a LUT
+	WFC = libpointer('uint8Ptr', zeros(width*height*Bytes,1));
+    
     % Generate a blank wavefront correction image, you should load your
     % custom wavefront correction that was shipped with your SLM.
+    PixelsPerStripe = 8;
     PixelValue = 0;
+    Region=0;
     calllib('ImageGen', 'Generate_Solid', Image, width, height, PixelValue);
     calllib('Blink_C_wrapper', 'Write_image', board_number, Image, width*height, wait_For_Trigger, external_Pulse, timeout_ms);
 	calllib('Blink_C_wrapper', 'ImageWriteComplete', board_number, timeout_ms);
+    
+    testGreyLevel = 10;
+    calllib('ImageGen', 'Generate_Stripe', Image, width, height, PixelValue, testGreyLevel, PixelsPerStripe);
+    calllib('ImageGen', 'Mask_Image', Image, width, height, Region, NumRegions);
+    calllib('Blink_C_wrapper', 'Write_image', board_number, Image, width*height, wait_For_Trigger, external_Pulse, timeout_ms);
 	
-    PixelsPerStripe = 8;
+    %%
+    
     %loop through each region
     for Region = 0:(NumRegions-1)
       
@@ -100,20 +128,20 @@ else
             %write the image
             calllib('Blink_C_wrapper', 'Write_image', board_number, Image, width*height, wait_For_Trigger, external_Pulse, timeout_ms);
             
-            %let the SLM settle for 10 ms
-            pause(0.01);
+            %let the SLM settle for 100 ms
+            pause(0.1);
             
             c = c+1;
             %YOU FILL IN HERE...FIRST: read from your specific AI board, note it might help to clean up noise to average several readings
             %SECOND: store the measurement in your AI_Intensities array
             AI_Intensities(AI_Index, 1) = Gray; %This is the varable graylevel you wrote to collect this data point
             
-            pause(2)
+            pause(3)
             fprintf(v,['sense:average:count ',num2str(counts)]);
             set(v,'timeout',3+1.1*counts*3/1000)
             ret = query(v,'read?');
             val = str2num(ret)*1000;
-            disp(['Got Measurement: ' num2str(val)])
+            disp(['Got Measurement (' num2str(Gray) '): ' num2str(val)])
 
             AI_Intensities(AI_Index, 2) = val;
             cs = [cs c];
@@ -141,10 +169,10 @@ else
         
         
         filename_csv = fullfile(lut_folder, ['Raw' num2str(Region) '.csv']);
-%         csvwrite(filename_csv, AI_Intensities);
+        csvwrite(filename_csv, AI_Intensities);
         
         filename_mat = fullfile(lut_folder, 'RawValuesLUT.mat');
-%         save(filename_mat,'AI_Intensities')
+        save(filename_mat,'AI_Intensities')
     end
 	
      
