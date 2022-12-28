@@ -33,17 +33,11 @@ else
     Setup.Holodaq.DAQReady=0;
 end
 
-Setup.SLM.is_onek = 1; %new from Hayley for 9/6/2022, to enable new setup for 1k
-
 Setup.BaslerCameraID =0;
 
 Setup.CGHMethod = 3; % Select 1 for superoposition, 2 for GGS, 3 for novocgh, 4 for 2P NovoCGH
 
-if Setup.SLM.is_onek
-    Setup.SLM.bit_depth = 12; %For the 512L bit depth is 16, for the small 512 bit depth is 8
-else 
-     Setup.SLM.bit_depth = 8;
-end
+Setup.SLM.bit_depth = 12; %For the 512L bit depth is 16, for the small 512 bit depth is 8
 Setup.SLM.num_boards_found = libpointer('uint32Ptr', 0);
 Setup.SLM.constructed_okay = libpointer('int32Ptr', 0);
 Setup.SLM.is_nematic_type = 1;
@@ -59,22 +53,15 @@ Setup.SLM.timeout_ms = 5000;
 % Setup.SLM.lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\slm4610_DataFromNico_Ref0.lut';%2/26/18 improved
 % Setup.SLM.lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\slm5177_at1035.lut';%3/26/19 included
 % Setup.SLM.lut_file = 'C:\Program Files\Meadowlark Optics\Blink OverDrive Plus\LUT Files\slm5178_at1035.lut';%3/9/21 included
-% Setup.SLM.lut_file = 'C:\Users\Holography\Desktop\meadowlark\LUT Files\slm6257_at1035_1st_order.lut';%3/9/21 included
-Setup.SLM.lut_file = 'C:\Users\Holography\Desktop\meadowlark\LUT Files\slm6257_at1035_0th_order.lut';
+Setup.SLM.lut_file = 'C:\Users\Holography\Desktop\meadowlark\LUT Files\slm6257_at1035.lut';%3/9/21 included
+
 
 
 Setup.SLM.reg_lut = libpointer('string');
 Setup.SLM.true_frames = 3;
 Setup.SLM.pixelmax = 255;%190; changed 4/10/19 improves diffraction efficiency
-if Setup.SLM.is_onek
-    Setup.SLM.Nx=1024;
-    Setup.SLM.Ny=1024;
-    Setup.psSLM = 17e-6;       % meters    SLM pixel dimensions
-else
-    Setup.SLM.Nx = 1920;
-    Setup.SLM.Ny = 1152;
-    Setup.psSLM = 9.2e-6;       % meters    SLM pixel dimensions
-end
+Setup.SLM.Nx = 1920;
+Setup.SLM.Ny = 1152;
 Setup.SLM.wait_For_Trigger= 0; % Set to 1 before initialization as needed.
 Hologram = zeros(Setup.SLM.Nx,Setup.SLM.Ny);
 Setup.SLM.State =0;
@@ -87,9 +74,7 @@ Setup.SLM.State =0;
 Setup.verbose=1;           % 1 or 0    Set this value to 1 to display activity, 0 otherwise
 Setup.lambda = 1.03e-6;   % meters    Wavelength of the light
 Setup.focal_SLM = 0.2;     % meters    focal length of the telescope lens after slm.
-
-
-
+Setup.psSLM = 9.2e-6;       % meters    SLM pixel dimensions
 Setup.Nx = Setup.SLM.Nx;            % int       Number of pixels in X direction
 Setup.Ny = Setup.SLM.Ny;            % int       Number of pixels in Y direction
 Setup.useGPU = 0;          % 1 or 0    Use GPU to accelerate computation. Effective when Nx, Ny is large (e.g. 600*800).
