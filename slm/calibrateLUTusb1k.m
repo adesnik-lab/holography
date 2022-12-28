@@ -1,8 +1,8 @@
 hw = instrhwinfo('visa', 'ni');
 hw.ObjectConstructorName
 %%
-counts = 500;
-pauseBetweenReads = 2;
+counts = 1000;
+pauseBetweenReads = 3;
 
 v = visa('ni', 'USB0::0x1313::0x8078::P0031082::INSTR');
 fopen(v);
@@ -16,6 +16,9 @@ fopen(v);
 % Blink_C_wrapper.dll, Blink_SDK.dll, ImageGen.dll, FreeImage.dll and wdapi1021.dll
 % should all be located in the same directory as the program referencing the
 % library
+
+addpath(genpath('c:\users\holography\desktop\meadowlark'))
+
 if ~libisloaded('Blink_C_wrapper')
     loadlibrary('Blink_C_wrapper.dll', 'Blink_C_wrapper.h');
 end
@@ -110,14 +113,14 @@ if num_boards_found.value > 0
     testGreyLevel = 10;
     PixelValue = 0;
     Region = 0;
-    calllib('ImageGen', 'Generate_Stripe', Image, WFC, width, height, depth, Reference, 50, PixelsPerStripe, RGB);
+    calllib('ImageGen', 'Generate_Stripe', Image, WFC, width, height, depth, Reference, testGreyLevel, PixelsPerStripe, RGB);
     calllib('ImageGen', 'Mask_Image', Image, width, height, depth, Region, NumRegions, RGB);
     calllib('Blink_C_wrapper', 'Write_image', board_number, Image, width*height*Bytes, wait_For_Trigger, flip_immediate, OutputPulseImageFlip, OutputPulseImageRefresh, timeout_ms);
 	
     input('Press enter when you align everything. There should be stripes on the SLM.')
     
 	% begin with the SLM blank
-    calllib('Blink_C_wrapper', 'Write_image', board_number, Image, width*height*Bytes, wait_For_Trigger, flip_immediate, OutputPulseImageFlip, OutputPulseImageRefresh, timeout_ms);
+    calllib('Blink_C_wrapper', 'Write_image', board_number, zeros([1024, 1024], 'uint8'), width*height*Bytes, wait_For_Trigger, flip_immediate, OutputPulseImageFlip, OutputPulseImageRefresh, timeout_ms);
 	calllib('Blink_C_wrapper', 'ImageWriteComplete', board_number, timeout_ms);
 	
     pause(1)
@@ -150,6 +153,9 @@ if num_boards_found.value > 0
             %let the SLM settle for 10 ms
             pause(0.1);
             c = c+1;
+            if c == 1
+                input('let power meter stabilize, then press enter to start')
+            end
             %YOU FILL IN HERE...FIRST: read from your specific AI board, note it might help to clean up noise to average several readings
             %SECOND: store the measurement in your AI_Intensities array
             pause(pauseBetweenReads)
