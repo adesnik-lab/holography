@@ -7,10 +7,14 @@ if ~strcmp(in,'y')
     return
 end
 
-makePaths()
-
-try function_close_sutter( Sutter ); end
-try [Setup.SLM ] = Function_Stop_SLM( Setup.SLM ); end
+% makePaths()
+addpath("sutter\")
+addpath("cameras\bascam\")
+addpath("cgh\")
+addpath("slm\")
+addpath(genpath("alignment\"))
+addpath(genpath("C:\Users\Holography\Desktop\meadowlark\"))
+addpath(genpath("msocket\"))
 
 clear
 close all
@@ -25,6 +29,7 @@ Setup.CGHMethod=2;
 Setup.GSoffset=0;
 Setup.verbose =0;
 Setup.useGPU =1;
+Setup.SLM.is_onek = 1;
 
 if Setup.useGPU
     disp('Getting gpu...'); %this can sometimes take a while at initialization
@@ -34,9 +39,9 @@ end
 [Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
 [ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
 
-Setup.Sutterport ='COM3';
-try; function_close_sutter( Sutter ); end
-[ Sutter ] = function_Sutter_Start( Setup );
+sutter = sutterController();
+mvShortWait = 0.1;
+mvLongWait = 1;
 
 bas = bascam();
 bas.start()
@@ -56,7 +61,7 @@ bas.preview()
 %run this first then code on daq
 disp('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42116);
+srvsock = mslisten(42118);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -98,8 +103,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 10;
-slmCoords = [.4 .45 -.05 1];
+pwr = 50;
+slmCoords = [.4 .4 0 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -123,7 +128,7 @@ bas.preview()
 
 input('Turn off Focus and press any key to continue');
 
-Sutter.Reference = getPosition(Sutter.obj);
+sutter.setRef()
 
 mssend(SISocket,[0 0]);
 
@@ -132,13 +137,12 @@ disp('also make those names better someday')
 disp('Make sure both lasers are on and the shutters open')
 disp('Scanimage should be idle, nearly in plane with focus. and with the gain set high enough to see most of the FOV without saturating')
 
-position = Sutter.Reference;
-position(3) = position(3) + 100;
-moveTo(Sutter.obj, position);
+sutter.moveZ(100)
+
 disp('testing the sutter double check that it moved to reference +100');
 input('Ready to go (Press any key to continue)');
 
-moveTo(Sutter.obj, Sutter.Reference);
+sutter.moveToRef()
 
 tManual = toc(tBegin);
 
@@ -146,9 +150,9 @@ tManual = toc(tBegin);
 
 npts = 200;
 
-slmXrange = [0.02 0.98];
-slmYrange = [0.02 0.98];
-slmZrange = [-.07 0.10];
+slmXrange = [0.1 0.95];
+slmYrange = [0.15 0.95];
+slmZrange = [-.04 0.025];
 
 slmCoordsInitial = generateRandomHolos(slmXrange, slmYrange, slmZrange, npts);
 
@@ -159,16 +163,18 @@ scatter3(slmCoordsInitial(1,:), ...
 title('Initial Holograms')
 
 fprintf('Compiling initial holograms... ')
-hololist = compileSingleTargetHolos(slmCoordsInitial);
+hololist = compileSingleTargetHolos(Setup, slmCoordsInitial);
 fprintf('done.\r')
 
 %% Measure background noise in camera
 
-bgd_frames = bas.grab(10);
+nBackgroundFrames = 10;
+
+bgd_frames = bas.grab(nBackgroundFrames);
 bgd = mean(bgd_frames, 3);
 
 meanBgd = mean(bgd_frames, 'all');
-stdBgd = std(bgd_frames, [], 'all');
+stdBgd = std(single(bgd_frames), [], 'all');
 
 %% Capture ScanImage/Optotune Planes Data
 
@@ -201,14 +207,17 @@ for i=1:gridpts
     end
 end
 
-disp(['We will collect ' num2str(numel(zsToUse)) ' planes.'])
+SIpts = numel(sutterPlanes);
 
-SIVals = zeros([SIpts c numel(zsToUse)]);
+disp(['We will collect ' num2str(numel(optotunePlanes)) ' planes.'])
 
-% for each optotune plane, locate in basler with sutter Z
+SIdepthArray = zeros([numel(optotunePlanes) SIpts sz]);
+SIdepthArrayLabels = {'opto plane', 'sutter plane', 'x', 'y'};
+%% for each optotune plane, locate in basler with sutter Z
 for k=1:numel(optotunePlanes)
     z = optotunePlanes(k);
-
+    
+    fprintf('\n')
     fprintf(['Testing plane ' num2str(z) ': ']);
     
     mssend(SISocket,[z 1]);
@@ -223,20 +232,18 @@ for k=1:numel(optotunePlanes)
     for i = 1:numel(sutterPlanes)
         fprintf([num2str(round(sutterPlanes(i))) ' ']);
         
-        position = Sutter.Reference;
-        position(3) = position(3) + (SIUZ(i));
-        moveTo(Sutter.obj,position);
+        sutter.moveZ(sutterPlanes(i))
 
         if i==1
-            pause(1)
+            pause(mvLongWait)
         else
-            pause(0.1);
+            pause(mvShortWait);
         end
         
         data = bas.grab(nframesCapture);
 
         data = mean(data, 3);
-        frame = max(frame-bgd, 0);
+        frame = max(data-bgd, 0);
         frame = imgaussfilt(frame, 2);
 
         dataUZ(:,:,i) =  frame;
@@ -244,9 +251,11 @@ for k=1:numel(optotunePlanes)
     end
 
     SIdepthImages{k} = dataUZ;
+%     SIdepthArray(k,i,:,:) = frame;
+    
 
-    moveTo(Sutter.obj, Sutter.Reference);
-    pause(1)
+    sutter.moveToRef()
+    pause(mvLongWait)
     
     mssend(SISocket,[z 0]);
     invar=[];
@@ -258,9 +267,11 @@ end
 
 mssend(SISocket,'end');
 
-disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
+% disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
 
 %% Extract and do fits
+
+SIVals = zeros([SIpts c numel(sutterPlanes)]);
 
 for k = 1:numel(SIdepthImages)
     for i =1:c
@@ -269,10 +280,12 @@ for k = 1:numel(SIdepthImages)
     end
 end
 
-SIfits = extractScanImageFits(SIVals, zsToUse, SIUZ);
+SIfits = extractScanImageFits(SIVals, optotunePlanes, sutterPlanes);
+SIpeakVal = SIfits.SIpeakVal;
+SIpeakDepth = SIfits.SIpeakDepth;
 
 % exclusions
-SIThreshHold = 3*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
+SIThreshHold = 3*stdBgd/sqrt(nBackgroundFrames + nframesCapture);
 %  SIThreshHold = 0.2;
 excl = SIpeakVal<SIThreshHold;
 
@@ -289,7 +302,177 @@ SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
 
+%% CamToOpt
+% refactor me!
+modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
+    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
+    2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
+     2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
 
+nOpt = numel(optotunePlanes);
+camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
+camXYZ(3,:) =  SIpeakDepth(:);
+
+camPower = SIpeakVal(:);
+nGrids =size(SIVals,2);
+optZ = repmat(optotunePlanes,[nGrids 1]);
+optZ = optZ(:);
+
+testSet = randperm(numel(optZ),50);
+
+otherSet = ones([numel(optZ) 1]);
+otherSet(testSet)=0;
+otherSet = logical(otherSet);
+
+refAsk = (camXYZ(1:3,otherSet))';
+refGet = optZ(otherSet);
+
+camToOpto =  polyfitn(refAsk,refGet,modelterms);
+
+
+Ask = camXYZ(1:3,testSet)';
+True = optZ(testSet);
+
+Get = polyvaln(camToOpto,Ask);
+
+RMS = sqrt(sum((Get-True).^2,2));
+meanRMS = nanmean(RMS);
+
+CoC.camToOpto= camToOpto;
+%%fig
+f201=figure(201);clf
+f201.Units = 'normalized';
+% f201.Position = [0 0 0.25 0.45];
+scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],camPower,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis \mum')
+title('Measured Fluorescence intensity by space')
+c = colorbar;
+c.Label.String = 'Fluorescent Intensity';
+axis square
+
+f2 = figure(2);clf
+f2.Units = 'normalized';
+% f2.Position = [0 0.5 0.5 0.45];
+subplot(2,2,1)
+scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],optZ,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis \mum')
+title('Measured Optotune Level (A.U.)')
+c = colorbar;
+c.Label.String = 'Optotune Depth';
+axis square
+
+subplot(2,2,2)
+scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],polyvaln(camToOpto,camXYZ(1:3,:)'),'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis \mum')
+title('Estimated Optotune Level (A.U.)')
+c = colorbar;
+c.Label.String = 'Optotune Depth';
+axis square
+
+subplot(2,2,3)
+scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],polyvaln(camToOpto,camXYZ(1:3,:)')-optZ,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis \mum')
+title('Error (A.U.)')
+c = colorbar;
+c.Label.String = 'Optotune Depth';
+axis square
+
+subplot(2,2,4)
+c = sqrt((polyvaln(camToOpto,camXYZ(1:3,:)')-optZ).^2);
+scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],c,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis \mum')
+title('Error RMS (A.U.)')
+c = colorbar;
+c.Label.String = 'Optotune Depth';
+axis square
+
+%%optZtoCam
+cam2XYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
+cam2XYZ(3,:) =  optZ(:);
+obsZ =  SIpeakDepth(:);
+
+testSet = randperm(numel(obsZ),50);
+otherSet = ones([numel(obsZ) 1]);
+otherSet(testSet)=0;
+otherSet = logical(otherSet);
+
+refAsk = (cam2XYZ(1:3,otherSet))';
+refGet = obsZ(otherSet);
+
+OptZToCam =  polyfitn(refAsk,refGet,modelterms);
+
+
+Ask = cam2XYZ(1:3,testSet)';
+True = obsZ(testSet);
+
+Get = polyvaln(OptZToCam,Ask);
+
+RMS = sqrt(sum((Get-True).^2,2));
+meanRMS = nanmean(RMS);
+disp(['The mean error in Optotune depth prediction is : ' num2str(meanRMS) 'um']);
+disp(['The Max error is: ' num2str(max(RMS)) 'um'])
+
+CoC.OptZToCam= OptZToCam;
+
+out.CoC=CoC;
+out.SIfitModelTerms = modelterms;
+%%fig
+f3 = figure(3);clf
+f3.Units = 'normalized';
+f3.Position = [0.5 0.5 0.5 0.45];
+subplot(2,2,1)
+scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],obsZ,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis Optotune Units')
+title('Measured Optotune Level (A.U.)')
+c = colorbar;
+c.Label.String = 'Depth \mum';
+axis square
+
+subplot(2,2,2)
+scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],polyvaln(OptZToCam,cam2XYZ(1:3,:)'),'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis Optotune Units')
+title('Estimated Optotune Level (A.U.)')
+c = colorbar;
+c.Label.String = 'Depth \mum';
+axis square
+
+subplot(2,2,3)
+scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],polyvaln(OptZToCam,cam2XYZ(1:3,:)')-obsZ,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis Optotune Units')
+title('Error (A.U.)')
+c = colorbar;
+c.Label.String = 'Depth \mum';
+axis square
+
+subplot(2,2,4)
+c = sqrt((polyvaln(OptZToCam,cam2XYZ(1:3,:)')-obsZ).^2);
+scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],c,'filled');
+ylabel('Y Axis pixels')
+xlabel('X axis pixels')
+zlabel('Z axis Optotune Units')
+title('Error RMS (A.U.)')
+c = colorbar;
+c.Label.String = 'Depth \mum';
+axis square
+
+% disp(['All fits took ' num2str(toc(tFits)) 's']);
+fitsT = toc(tFits);
 
 
 

@@ -1,4 +1,4 @@
-function hololist = compileSingleTargetHolos(slmCoords)
+function hololist = compileSingleTargetHolos(Setup, slmCoords)
 
 parfor i=1:size(slmCoords, 2)
     t=tic;
