@@ -58,7 +58,7 @@ classdef bascam < handle
             while isgraphics(f)
                 frame = obj.grab(1);
                 imagesc(frame)
-                caxis([0 2^obj.bit_depth-1])
+                clim([0 2^obj.bit_depth-1])
                 colorbar
                 drawnow
             end
