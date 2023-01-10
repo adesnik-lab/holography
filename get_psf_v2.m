@@ -1,10 +1,5 @@
 %% Pathing and setup
 
-makePaths()
-addpath('cameras\bascam')
-
-try function_close_sutter( Sutter ); end
-try [Setup.SLM ] = Function_Stop_SLM( Setup.SLM ); end
 
 clear
 close all
@@ -13,6 +8,8 @@ clc
 tBegin = tic;
 
 disp('Setting up stuff...');
+
+makePaths2()
 
 Setup = function_loadparameters2();
 Setup.CGHMethod=2;
@@ -29,9 +26,7 @@ end
 [Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
 [ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
 
-Setup.Sutterport ='COM3';
-try; function_close_sutter( Sutter ); end
-[ Sutter ] = function_Sutter_Start( Setup );
+sutter = sutterController();
 
 bas = bascam();
 bas.start()
@@ -44,7 +39,7 @@ bas.preview()
 %% connect to DAQ computer
 
 %run this first then code on daq
-disp('Waiting for msocket communication From DAQ... ')
+fprintf('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
 srvsock = mslisten(42118);
 masterSocket = msaccept(srvsock,15);
@@ -71,8 +66,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 50;
-slmCoords = [.4 .5 0 1];
+pwr = 15;
+slmCoords = [.55 .4 -0.04 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -84,6 +79,32 @@ Function_Feed_SLM(Setup.SLM, Holo);
 mssend(masterSocket, [pwr/1000 1 1]);
 bas.preview()
 mssend(masterSocket, [0 1 1]);
+
+%% check pixel val
+bgd_frames = bas.grab(10);
+bgd = mean(bgd_frames, 3);
+
+mssend(masterSocket, [pwr/1000 1 1]);
+data = bas.grab(10);
+mssend(masterSocket, [0 1 1]);
+mssend(masterSocket, [0 1 1]);
+data = mean(data,3);
+frame = max(data-bgd, 0);
+[x,y] = function_findcenter(frame);
+
+frame_crop = data(x-20:x+20, y-20:y+20);
+
+figure(6)
+clf
+imagesc(frame_crop)
+axis square
+colorbar
+% clim([0 255])
+xL=xlim;
+yL=ylim;
+mx = max(frame_crop,[],"all");
+str = ['Peak Intensity: ' num2str(mx) ' A.U.'];
+text(0.03*xL(2),0.03*yL(2),str,'HorizontalAlignment','left','VerticalAlignment','top', 'Color','w')
 
 %% Measure background noise in camera
 
@@ -98,23 +119,18 @@ nframesCapture = 10;
 
 figure(1); clf
 
-Sutter.Reference = getPosition(Sutter.obj);
-
-position = Sutter.Reference;
-moveTo(Sutter.obj,position);
+sutter.setRef()
 
 sz = size(bgd);
 UZ= linspace(-70,70,21);
 
 dataUZ = zeros([sz numel(UZ)]);
 
-disp('Collecting PSF')
+disp('Collecting PSF.')
 
 for i=1:numel(UZ)
 
-    position = Sutter.Reference;
-    position(3) = position(3)+UZ(i);
-    moveTo(Sutter.obj,position);
+    sutter.moveZ(UZ(i))
 
     if i==1
         pause(1)
@@ -130,119 +146,126 @@ for i=1:numel(UZ)
 
     data = bas.grab(nframesCapture);
 
-    data = mean(data, 3);
-    frame = max(data-bgd, 0);
-    frame = imgaussfilt(frame, 2);
-
     mssend(masterSocket,[0 1 1]);
     invar=[];
     while ~strcmp(invar,'gotit')
         invar = msrecv(masterSocket,0.01);
     end
 
+     % process frame grabs
+    data = mean(data, 3);
+    frame = max(data-bgd, 0);
+    frame = imgaussfilt(frame, 2);
     dataUZ(:,:,i) =  frame;
 
-    figure(1);
+    % plot live data
+    figure(1)
     subplot(1,2,1)
     imagesc(frame);
     title(['Frame ' num2str(i)])
+    colorbar
+%     clim([0 255])
+
     subplot(1,2,2)
     imagesc(max(dataUZ,[],3));
     colorbar
+%     clim([0 255])
     title('Max Projection')
-    drawnow;
+    drawnow
 end
 
-position = Sutter.Reference;
-moveTime=moveTo(Sutter.obj,position);
-disp('done')
+sutter.moveToRef()
 
+disp('Done collecting PSF stack.')
 
-%%Calc FWHM
+% Calc FWHM
 
 mxProj = max(dataUZ,[],3);
-[ x,y ] =function_findcenter(mxProj );
+[ x,y ] =function_findcenter(mxProj);
 
-range =2;
+range = 2;
 
 dimx = max((x-range),1):min((x+range),size(frame,1));
 dimy =  max((y-range),1):min((y+range),size(frame,2));
 
 thisStack = squeeze(mean(mean(dataUZ(dimx,dimy,:))));
-[a peakPlane ] = max(thisStack);
+[a, peakPlane ] = max(thisStack);
 peakFrame = dataUZ(:,:,peakPlane);
 
-% %%determine pxPerMu correctly
-% muUsed= 50;
-% 
-% disp('Determining pxPerMu')
-% position = Sutter.Reference;
-% position(3) = position(3)+UZ(peakPlane);
-% moveTime=moveTo(Sutter.obj,position);
-% 
-% mssend(masterSocket,[pwr/1000 1 1]);
-% invar=[];
-% while ~strcmp(invar,'gotit')
-%     invar = msrecv(masterSocket,0.01);
-% end
-% 
-% data = bas.grab(nframesCapture);
-% data = mean(data, 3);
-% 
-% mssend(masterSocket,[0 1 1]);
-% invar=[];
-% while ~strcmp(invar,'gotit')
-%     invar = msrecv(masterSocket,0.01);
-% end
-% 
-% frame = max(data-bgd, 0);
-% pos1 = imgaussfilt(frame, 2);
-% 
-% position = Sutter.Reference;
-% position(3) = position(3)+UZ(peakPlane);
-% position(2) = position(2)+muUsed;
-% moveTo(Sutter.obj,position);
-% 
-% mssend(masterSocket,[pwr/1000 1 1]);
-% 
-% invar=[];
-% while ~strcmp(invar,'gotit')
-%     invar = msrecv(masterSocket,0.01);
-% end
-% 
-% data = bas.grab(nframesCapture);
-% data = mean(data, 3);
-% 
-% mssend(masterSocket,[0 1 1]);
-% invar=[];
-% while ~strcmp(invar,'gotit')
-%     invar = msrecv(masterSocket,0.01);
-% end
-% 
-% frame = max(data-bgd, 0);
-% pos2 = imgaussfilt(frame, 2);
-% 
-% [ x1,y1 ] =function_findcenter(pos1 );
-% [ x2,y2 ] =function_findcenter(pos2 );
-% distance = pdist([x1 y1; x2 y2]);
-% pxPerMu = distance/muUsed;
-% disp(['Determined to be ' num2str(pxPerMu) ' px per mu'])
-% 
-% %move back home
-% % position = Sutter.Reference;
-% % moveTime=moveTo(Sutter.obj,position);
-% 
-% position = Sutter.Reference;
-% position(2) = position(2)+5; %add slight offset
-% moveTime=moveTo(Sutter.obj,position);
-% %%a
+% determine pxPerMu with sutter
+muUsed= 50;
+
+disp('Determining pxPerMu.')
+
+xyz = [0 0 UZ(peakPlane)];
+sutter.moveTo(xyz)
+pause(1)
+
+mssend(masterSocket,[pwr/1000 1 1]);
+invar=[];
+while ~strcmp(invar,'gotit')
+    invar = msrecv(masterSocket,0.01);
+end
+
+data = bas.grab(nframesCapture);
+data = mean(data, 3);
+
+mssend(masterSocket,[0 1 1]);
+invar=[];
+while ~strcmp(invar,'gotit')
+    invar = msrecv(masterSocket,0.01);
+end
+
+frame = max(data-bgd, 0);
+pos1 = imgaussfilt(frame, 2);
+
+xyz = [0 muUsed UZ(peakPlane)];
+sutter.moveTo(xyz)
+pause(1)
+
+mssend(masterSocket,[pwr/1000 1 1]);
+invar=[];
+while ~strcmp(invar,'gotit')
+    invar = msrecv(masterSocket,0.01);
+end
+
+data = bas.grab(nframesCapture);
+data = mean(data, 3);
+
+mssend(masterSocket,[0 1 1]);
+invar=[];
+while ~strcmp(invar,'gotit')
+    invar = msrecv(masterSocket,0.01);
+end
+
+frame = max(data-bgd, 0);
+pos2 = imgaussfilt(frame, 2);
+
+[ x1,y1 ] =function_findcenter(pos1 );
+[ x2,y2 ] =function_findcenter(pos2 );
+distance = pdist([x1 y1; x2 y2]);
+pxPerMu = distance/muUsed;
+disp(['Determined to be ' num2str(pxPerMu) ' px per mu'])
+
+% figure(4)
+% clf
+% subplot(1,2,1)
+% imagesc(pos1)
+% subplot(1,2,2)
+% imagesc(pos2)
+
+sutter.moveToRef()
+
 xLine = double(peakFrame(x,:));
-xSize = linspace(1,1000,numel(xLine))./pxPerMu;
+yLine = double(peakFrame(:,y))';
+[row,col] = size(frame);
+xSize = linspace(1,col,numel(xLine))./pxPerMu; 
+ySize = linspace(1,row,numel(yLine))./pxPerMu; 
+
 f1 = fit(xSize', xLine', 'gauss1');
 xValue =f1.a1;
 xDepth =f1.b1;
 xFWHM = 2*sqrt(2*log(2))*f1.c1/sqrt(2);
-
 
 ff = fit(UZ', thisStack, 'gauss1');
 peakValue =ff.a1;
@@ -251,8 +274,7 @@ peakFWHM = 2*sqrt(2*log(2))*ff.c1/sqrt(2);
 
 mimg = mean(dataUZ,3);
 
-
-%%caclulations
+% caclulations
 figure(3);clf
 subplot(2,2,1)
 plot(UZ,thisStack)
@@ -274,7 +296,6 @@ xlabel('X-position (\mum)')
 legend('Measured', 'Fit')
 
 
-
 subplot(2,2,3);
 axis square
 imagesc(mimg)
@@ -293,5 +314,6 @@ ylim([x-30 x+30])
 title('Peak Frame')
 colorbar
 
-max(peakFrame(:))
+disp(['Max camera val: ' num2str(max(peakFrame(:)))])
+
 

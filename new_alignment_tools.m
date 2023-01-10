@@ -72,9 +72,11 @@ disp('sent a blank phase')
 
 %% shoot single holo, no power control
 
-slmCoordsTemp = [0.45 0.95 0 1];
+slmCoordsTemp = [0.1 0.1 0 1];
 
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
+DEestimateTemp = DEfromSLMCoords(slmCoordsTemp); %
+disp(['Diffraction Estimate for this spot is: ' num2str(DEestimateTemp)])
 Function_Feed_SLM(Setup.SLM, HoloTemp);
 disp('sent SLM')
 
@@ -106,11 +108,11 @@ title('Hologram sent to SLM')
 % input power in mW
 pwr = 150;
 
-% slmCoordsTemp = [0.6 0.55 0.02 1];
-slmCoordsTemp = [[0.13 .15 0.02 1];...
-                 [0.05 .80 0.02 1];...
-                 [1.0 .4 0.02 1];...
-                 [0.9 .9 0.02 1]];%...
+slmCoordsTemp = [0.55 0.4 0 1];
+% slmCoordsTemp = [[0.13 .15 0.02 1];...
+%                  [0.05 .80 0.02 1];...
+%                  [1.0 .4 0.02 1];...
+%                  [0.9 .9 0.02 1]];%...
                  %[0.60 .60 0.02 1]];
 
 % slmCoordsTemp = [[0.20 .17 0.02 1];... % top right
@@ -125,7 +127,7 @@ disp('sent SLM')
 
 mssend(masterSocket, [pwr/1000 1 1]);
 % bas.preview()
-figure
-frame = bas.grab(3);
-imagesc(mean(frame, 3), [0, 24])
+% figure
+% frame = bas.grab(3);
+% imagesc(mean(frame, 3), [0, 24])
 mssend(masterSocket, [0 1 1]);
