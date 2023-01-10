@@ -9,15 +9,10 @@ try [Setup.SLM ] = Function_Stop_SLM( Setup.SLM ); end
 clear;close all;clc
 %%
 tBegin = tic;
-addpath(genpath('C:\Users\Holography\Documents\MATLAB\msocket\'));
-rmpath(genpath('C:\Users\Holography\Documents\GitHub\SLM-Managment\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\New_SLM_Code\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\NOVOCGH_Code\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\'));
+makePaths()
+addpath(genpath('C:\Users\Holography\Desktop\holography\'))
 addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Basler\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\IanTestCode\'));
 
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\ThorCam\'));
 
 disp('done pathing')
 
@@ -55,7 +50,7 @@ function_BasPreview(Setup);
 
 disp('Waiting for msocket communication From DAQ')
 %then wait for a handshake
-srvsock = mslisten(42163);
+srvsock = mslisten(42118);
 masterSocket = msaccept(srvsock,10);
 msclose(srvsock);
 sendVar = 'A';
@@ -72,12 +67,12 @@ disp('communication from Master To Holo Established');
 
 %% Set Power Levels
 
-pwr = 25;%;14.3; 12.5;12; %40; %13 at full; 50 at 15 divided
+pwr = 5;%;14.3; 12.5;12; %40; %13 at full; 50 at 15 divided
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoordsTemp =[.45 .55 -.05 1];%[0.276 .4633 .01676 1];%[0.4 0.75 0.01 1];
+slmCoordsTemp =[.6 .6 0 1];%[0.276 .4633 .01676 1];%[0.4 0.75 0.01 1];
 DEestimateTemp = DEfromSLMCoords(slmCoordsTemp); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimateTemp)])
 

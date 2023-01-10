@@ -3,7 +3,7 @@ classdef bascam < handle
     properties
         vid
         src
-        camera_model = 'Y800_1024x768';
+        camera_model = 'Y800_2048x1536';
         driver = 'winvideo';
         is_running = 0;
     end
@@ -93,6 +93,14 @@ classdef bascam < handle
 
         function res = get.resolution(obj)
             res = obj.vid.VideoResolution;
+        end
+
+        function reset(obj)
+            fprintf('Restarting camera... ')
+            obj.stop()
+            pause(1)
+            obj.start()
+            fprintf('OK.\r')
         end
 
         function delete(obj)

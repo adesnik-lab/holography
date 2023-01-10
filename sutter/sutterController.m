@@ -74,13 +74,14 @@ classdef sutterController < handle
         end
 
         function moveTo(obj, xyz)
-            % move to raw location
-            cmd = obj.um2bytes(xyz);
+            % move to raw location from reference
+            new_xyz = obj.reference + xyz;
+            cmd = obj.um2bytes(new_xyz);
             obj.issueMove(cmd)
         end
 
         function moveAxis(obj, val, axis)
-            % move axis generically
+            % move axis generically in (X, Y, Z) from reference
             movVec = [0 0 0];
             movVec(axis) = movVec(axis) + val;
             new_xyz = obj.reference + movVec;
