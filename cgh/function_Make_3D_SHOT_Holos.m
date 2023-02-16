@@ -1,6 +1,7 @@
 function [ Hologram,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos( Setup,Coordinates )
 % Coordinates is a N points by 3 or by 4 map of x,y,z optional power
 % coordinates.
+
 [~,LP] = size(Coordinates);
 if LP==4
     %Case where you provide adjusted intensity coefficients
@@ -56,11 +57,12 @@ for i = 1:NZ
         Masks(sxx(j),syy(j),i) = spower(j);
     end
 end
+
 Masksg = Masks;
 
 if Setup.useGPU ==1
     Masks = gpuArray(Masks);
-end;
+end
 
 [ HStacks ] = function_Hstacks( Setup,Depths );
 

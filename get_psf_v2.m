@@ -1,6 +1,5 @@
 %% Pathing and setup
 
-
 clear
 close all
 clc
@@ -9,13 +8,13 @@ tBegin = tic;
 
 disp('Setting up stuff...');
 
-makePaths2()
+makePaths()
 
-Setup = function_loadparameters2();
-Setup.CGHMethod=2;
-Setup.GSoffset=0;
-Setup.verbose =0;
-Setup.useGPU =0;
+Setup = function_loadparameters3();
+Setup.CGHMethod = 2;
+Setup.GSoffset = 0;
+Setup.verbose = 0;
+Setup.useGPU = 1;
 Setup.SLM.is_onek = 1;
 
 if Setup.useGPU
@@ -23,15 +22,15 @@ if Setup.useGPU
     g= gpuDevice;
 end
 
-[Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
-[ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
+Setup.SLM = Function_Stop_SLM( Setup.SLM );
+Setup.SLM = Function_Start_SLM( Setup.SLM );
 
 sutter = sutterController();
 
 bas = bascam();
 bas.start()
 
-disp('Ready')
+disp('Setup complete.')
 %% look for objective in 1p
 
 bas.preview()
@@ -41,7 +40,7 @@ bas.preview()
 %run this first then code on daq
 fprintf('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42118);
+srvsock = mslisten(42119);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -66,8 +65,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 15;
-slmCoords = [.55 .4 -0.04 1];
+pwr = 7;
+slmCoords = [.6 .6 -0.03 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 

@@ -19,16 +19,16 @@ tBegin = tic;
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\New_SLM_Code\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\NOVOCGH_Code\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Basler\'));
+% addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Basler\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\IanTestCode\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Will test code\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\ThorCam\'));
 % addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\CameraFunctions\'));
 % addpath(genpath('C:\Users\Holography\Desktop\holography'));
 % 
-makePaths()
+% makePaths()
 addpath(genpath('C:\Users\Holography\Desktop\holography\'))
-
+addpath(genpath('C:\Users\Holography\Desktop\meadowlark\'))
 disp('done pathing')
 
 %% Setup Stuff
@@ -127,7 +127,7 @@ pwr = 13; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoords = [.4 .42 -0.03 1];%[0.45 0.45 0 1];
+slmCoords = [.4 .42 -0.06 1];%[0.45 0.45 0 1];
 DEestimate = DEfromSLMCoords(slmCoords); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
@@ -184,7 +184,7 @@ moveTime=moveTo(Sutter.obj,position);
 tManual = toc(tBegin);
 %% Create a random set of holograms or use flag to reload
 disp('First step Acquire Holograms')
-reloadHolos =1;
+reloadHolos =0;
 tSingleCompile = tic;
  
 if ~reloadHolos
@@ -202,7 +202,7 @@ if ~reloadHolos
     slmYrange = [0.15 0.98];%7/23/21 [.05 0.9];%9/19/19 [.01 .7];% [0.075 0.85];%[0.5-RY 0.5+RY];
     
     % set Z range
-    slmZrange = [-.04 0.02];
+    slmZrange = [-.06 0.02];
     % 12/29/22 WH - should be roughly +145 um (-0.04 SLM) to -30 um (0.025 SLM)
  
     %3/11/21 IO.  %%[-0.02 0.07];%9/19/19 % [-0.1 0.15];
@@ -279,7 +279,8 @@ if ~reloadHolos
 else
     disp('Reloading old Holograms...')
     try
-        load('tempHololist3.mat','out');
+%         load('tempHololist3.mat','out');
+        load('tempHololist4_will.mat', 'out')
     catch
         [f, p] =uigetfile;
         load(fullfile(p,f),'out');
@@ -299,14 +300,16 @@ singleCompileT = toc(tSingleCompile);
 
 out.hololist=[];
 
+%% optionally adjust exposure
+% 
+% vid = Setup.cam;
+% 
+% stop(vid)
+% src = getselectedsource(vid);
+% src.Exposure = -3;
+% start(vid);
+
 %% Collect background frames for signal to noise testing
-vid = Setup.cam;
-
-stop(vid)
-src = getselectedsource(vid);
-src.Exposure = -1;
-start(vid);
-
 
 disp('Collecting Background Frames');
 tSI=tic;
@@ -323,13 +326,16 @@ threshHold = meanBgd+3*stdBgd;
 
 fprintf(['3\x03c3 above mean threshold ' num2str(threshHold,4) '\n'])
 
+figure(328)
+imagesc(BGD)
+
 %% Scan Image Planes Calibration
 disp('Begining SI Depth calibration, we do this first incase spots burn holes with holograms')
 clear SIdepthData
 
 zsToUse = linspace(0,70,15);% %70 was about 125um on 3/11/21 %Newer optotune has more normal ranges 9/28/29; New Optotune has different range 9/19/19; [0:10:89]; %Scan Image Maxes out at 89
 
-SIUZ = -25:5:130;% linspace(-120,200,SIpts);
+SIUZ = -15:5:130;% linspace(-120,200,SIpts);
 SIpts = numel(SIUZ);
 
 %generate xy grid
@@ -347,7 +353,7 @@ ys([1 end])=[];
 range =15;
 
 %frames to average for image (orig 6) %added 7/15/2020 -Ian
-framesToAcquire = 6;
+framesToAcquire = 10;
 
 clear dimx dimy XYSI
 c=0;
@@ -390,9 +396,9 @@ for k =1:numel(zsToUse)
         moveTime=moveTo(Sutter.obj,position);
         %           toc;
         if i==1
-            pause(1)
+            pause(3)
         else
-            pause(0.1);
+            pause(0.3);
         end
         
         %change this part to change number of frames acquired
@@ -432,11 +438,11 @@ for k =1:numel(zsToUse)
     end
     
     figure(1212);
-    for hbtmpi=1:31
+    for hbtmpi=1:numel(SIUZ)
         subplot(6,6,hbtmpi)
         imagesc(dataUZ(:,:,hbtmpi));
     end
-    pause(.05)
+    pause(.5)
     
     for i =1:c
 %         temp = dataUZ(dimx(:,i),dimy(:,i),:);
@@ -444,7 +450,7 @@ for k =1:numel(zsToUse)
         SIVals(:,i,k) = squeeze(mean(mean(dataUZ(dimx(:,i),dimy(:,i),:))));
     end
     
-    SIdepthImages{k} = dataUZ;
+%     SIdepthImages{k} = dataUZ;
     
     disp([' Took ' num2str(toc(t)) 's']);
     
@@ -519,8 +525,8 @@ SIpeakDepth = b2;
 
 % figure
 % hist(SIpeakVal)
-% SIThreshHold = 1.1*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
- SIThreshHold = 1;
+SIThreshHold =2*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
+%  SIThreshHold = 0.6;
 excl = SIpeakVal<SIThreshHold;%changed to reflect difference better.\
 % excl = SIpeakVal<SIThreshHold;
 
@@ -533,7 +539,7 @@ excl = SIpeakVal>255;
 % SIpeakVal(excl)=nan;
 % SIpeakDepth(excl)=nan;
 
-excl = SIpeakDepth<-10 | SIpeakDepth>150; %upper bound added 7/15/2020 -Ian
+excl = SIpeakDepth<-20 | SIpeakDepth>125; %upper bound added 7/15/2020 -Ian
 
 disp([num2str(sum(excl(:))) ' points excluded b/c too deep'])
 SIpeakVal(excl)=nan;
@@ -541,7 +547,7 @@ SIpeakDepth(excl)=nan;
 disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
 
 
-%% CamToOpt
+%%CamToOpt
 modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
     1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
     2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
@@ -579,7 +585,7 @@ CoC.camToOpto= camToOpto;
 %%fig
 f201=figure(201);clf
 f201.Units = 'normalized';
-% f201.Position = [0 0 0.25 0.45];
+f201.Position = [0 0 0.25 0.45];
 scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],camPower,'filled');
 ylabel('Y Axis pixels')
 xlabel('X axis pixels')
@@ -591,7 +597,7 @@ axis square
 
 f2 = figure(2);clf
 f2.Units = 'normalized';
-f2.Position = [0 0.5 0.5 0.45];
+f2.Position = [0 0.4 0.4 0.4];
 subplot(2,2,1)
 scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],optZ,'filled');
 ylabel('Y Axis pixels')
@@ -666,7 +672,7 @@ out.SIfitModelTerms = modelterms;
 %%fig
 f3 = figure(3);clf
 f3.Units = 'normalized';
-% f3.Position = [0.5 0.5 0.5 0.45];
+f3.Position = [0.4 0.4 0.4 0.4];
 subplot(2,2,1)
 scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],obsZ,'filled');
 ylabel('Y Axis pixels')
@@ -708,18 +714,18 @@ c = colorbar;
 c.Label.String = 'Depth \mum';
 axis square
 
-disp(['All fits took ' num2str(toc(tFits)) 's']);
-fitsT = toc(tFits);
+% disp(['All fits took ' num2str(toc(tFits)) 's']);
+% fitsT = toc(tFits);
 
 %% Reset exposure so holo collection goes faster
 % pwr = 20;
 % slmCoords = [.4 .45 0.08 1];
 
-vid = Setup.cam;
-stop(vid)
-src = getselectedsource(vid);
-src.Exposure = -3;
-start(vid);
+% vid = Setup.cam;
+% stop(vid)
+% src = getselectedsource(vid);
+% src.Exposure = -3;
+% start(vid);
 
 % disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 % disp('Find the spot and check if this is the right amount of power')
@@ -782,9 +788,9 @@ for i = 1:numel(coarseUZ)
     moveTime=moveTo(Sutter.obj,position);
     
     if i==1
-        pause(1)
+        pause(2)
     else
-        pause(0.1);
+        pause(0.2);
     end
     
     for k=1:npts
@@ -1240,7 +1246,7 @@ excludeTrials = excludeTrials | basXYZ(3,:)>190;
 
 excludeTrials = excludeTrials | any(isnan(basXYZ(:,:)));
 excludeTrials = excludeTrials | basVal<1; %8/3 hayley add 5; Ian ammend to 1 9/13
-excludeTrials = excludeTrials | basVal>(mean(basVal)+3*std(basVal)); %9/13/19 Ian Add
+% excludeTrials = excludeTrials | basVal>(mean(basVal)+3*std(basVal)); %9/13/19 Ian Add
 excludeTrials = excludeTrials | basVal>700;
 
 slmXYZBackup = slmXYZ(:,~excludeTrials);
@@ -1939,13 +1945,13 @@ basDimensions = size(Bgdframe);
 excludeTrials = excludeTrials | basXYZ4(1,:)>=basDimensions(1)-1;
 excludeTrials = excludeTrials | basXYZ4(2,:)>=basDimensions(2)-1;
 excludeTrials = excludeTrials | basXYZ4(3,:)<-25; %9/19/19 Ian Added to remove systematic low fits
-excludeTrials = excludeTrials | basXYZ4(3,:)>190;
+excludeTrials = excludeTrials | basXYZ4(3,:)>120;
 
 
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
 excludeTrials = excludeTrials | basVal4<5; %8/3 hayley add 5; Ian ammend to 1 9/13
-excludeTrials = excludeTrials | basVal4>(mean(basVal4)+2*std(basVal4)); %9/13/19 Ian Add
-excludeTrials = excludeTrials | basVal4>30;
+% excludeTrials = excludeTrials | basVal4>(mean(basVal4)+2*std(basVal4)); %9/13/19 Ian Add
+excludeTrials = excludeTrials | basVal4>250;
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -2002,7 +2008,7 @@ reOrder = randperm(size(slmXYZ4,2));
 slmXYZ4 = slmXYZ4(:,reOrder);
 basXYZ4 = basXYZ4(:,reOrder);
 
-holdback = 200;%50;
+holdback = 500;%50;
 
 refAsk = (slmXYZ4(1:3,1:end-holdback))';
 refGet = (basXYZ4(1:3,1:end-holdback))';
@@ -2064,7 +2070,8 @@ disp('Error based on Holdback Data...')
 disp(['The RMS error: ' num2str(meanRMS) ' pixels for SLM to Camera']);
 
 % pxPerMu = size(frame,1) / 1000; %really rough approximate of imaging size
-pxPerMu = 0.57723;
+% pxPerMu = 0.57723;
+pxPerMu = 1.3;
 
 disp(['Thats approx ' num2str(meanRMS/pxPerMu) ' um']);
 
@@ -2246,10 +2253,10 @@ plot(FWHM,depth,'o')
 ylabel('Axial Depth \mum')
 xlabel('FWHM \mum')
 ylim([-25 125])
-xlim([7.5 75])
+xlim([7.5 50])
 
 refline(0,0)
-refline(0,100)
+refline(0,60)
 
 
 subplot(1,2,2);
@@ -2262,7 +2269,7 @@ ylabel('SLM Y')
 zlabel('SLM Z')
 set(get(h,'label'),'string','FWHM \mum')
 
-fprintf(['FWHM in the typical useable volume (0 to 100um) is: ' num2str(mean(FWHM(depth>0 & depth<100))) 'um\n'])
+fprintf(['FWHM in the typical useable volume (0 to 100um) is: ' num2str(mean(FWHM(depth>0 & depth<60))) 'um\n'])
 
 
 finalFitsT = toc(denseFitsTimer);
@@ -2379,7 +2386,7 @@ mssend(SISocket,['hSI.hStackManager.numVolumes = [' num2str(numVol) '];']);
 mssend(SISocket,'hSI.hStackManager.enable = 1 ;');
 
 mssend(SISocket,'hSI.hBeams.pzAdjust = 0;');
-mssend(SISocket,'hSI.hBeams.powers = 12;'); %power on SI laser. important no to use too much don't want to bleach
+mssend(SISocket,'hSI.hBeams.powers = 11;'); %power on SI laser. important no to use too much don't want to bleach
 
 mssend(SISocket,'hSI.extTrigEnable = 0;'); %savign
 mssend(SISocket,'hSI.hChannels.loggingEnable = 1;'); %savign
@@ -2428,7 +2435,7 @@ while wait
     end
 end
 
-burnPowerMultiplier = 5; % back to 10 bc better DE 12/29/22, WH %5; 10;%change to 10 3/11/21 %previously 5; added by Ian 9/20/19
+burnPowerMultiplier = 10; % back to 10 bc better DE 12/29/22, WH %5; 10;%change to 10 3/11/21 %previously 5; added by Ian 9/20/19
 burnTime = 0.5; %in seconds, very rough and not precise
 
 disp('Now Burning')
@@ -2652,7 +2659,7 @@ SIXYZ(:,excl)=[];
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (cam3XYZ(1:3,:))';
-errScalar = 3;2.5;2.6;
+errScalar = 2.5;2.5;2.6;
 
 figure(2594);clf
 subplot(1,2,1)
@@ -2686,7 +2693,7 @@ SIXYZ(:,excl)=[];
 
 refAsk = SIXYZ(1:3,:)';
 refGet = (slm3XYZ(1:3,:))';
-errScalar =3;2.5;2.5;
+errScalar =2.5;2.5;2.5;
 
 figure(2616);clf
 subplot(1,2,1)
@@ -2705,7 +2712,7 @@ numTest = 10000;
 
 rangeX = [0 511];%[0 511];
 rangeY = [0 511];%[0 511];
-rangeZ = [0 70];% Make Sure to match this to the correct range for this optotune;
+rangeZ = [0 55];% Make Sure to match this to the correct range for this optotune;
 
 clear test;
 valX = round((rangeX(2)-rangeX(1)).*rand(numTest,1)+rangeX(1));
@@ -2826,7 +2833,7 @@ scatter3(test(1:N,1),test(1:N,2),test(1:N,3),[],val(1:N),'filled')
 xlabel('SI X')
 ylabel('SI Y')
 zlabel('Opto Depth')
-caxis([0 200])
+caxis([0 15])
 colorbar
 title('Simulated XY error, both methods')
 
@@ -2876,22 +2883,22 @@ save(fullfile(pathToUse,'ActiveCalib.mat'),'CoC')
 
 
 
-times.saveT = toc(tSave);
-times.burnFitsT = burnFitsT;
-times.loadT = loadT;
-times.MovT = MovT;
-times.burnT = burnT;
-times.compileBurnT = compileBurnT;
-times.finalFitsT = finalFitsT; %Final Fits Camera to SLM
-times.finalFineT = fineT; %Second Dense Fine
-times.intermediateFitsT = intermediateFitsT;
-times.intermediateT = multiT; %first pass fine fit
-times.coarseFitsT = fitsT; %Coarse
-times.coarseT = coarseT; %Coarse Fit
-times.siT = siT;
-times.singleCompileT = singleCompileT;
-times.multiCompileT = multiCompileT;
-times.manualT = tManual; %time spent doing manual setup. 
+% times.saveT = toc(tSave);
+% times.burnFitsT = burnFitsT;
+% times.loadT = loadT;
+% times.MovT = MovT;
+% times.burnT = burnT;
+% times.compileBurnT = compileBurnT;
+% times.finalFitsT = finalFitsT; %Final Fits Camera to SLM
+% times.finalFineT = fineT; %Second Dense Fine
+% times.intermediateFitsT = intermediateFitsT;
+% times.intermediateT = multiT; %first pass fine fit
+% times.coarseFitsT = fitsT; %Coarse
+% times.coarseT = coarseT; %Coarse Fit
+% times.siT = siT;
+% times.singleCompileT = singleCompileT;
+% times.multiCompileT = multiCompileT;
+% times.manualT = tManual; %time spent doing manual setup. 
 
 totT = toc(tBegin);
 times.totT = totT;
