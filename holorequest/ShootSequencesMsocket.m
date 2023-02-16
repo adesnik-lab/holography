@@ -51,7 +51,12 @@ if saveDetails
         %disp(['now queuing hologram ' num2str(order(counter))])
         t=tic;
         %     outcome = Function_Feed_SLM(Setup.SLM, sequences(:,:,order(counter)));
-        calllib('Blink_C_wrapper', 'Write_image', 1, sequences(:,:,order(counter)), 1920*1152, SLM.wait_For_Trigger, SLM.external_Pulse, SLM.timeout_ms);
+%         calllib('Blink_C_wrapper', 'Write_image', 1, sequences(:,:,order(counter)), 1920*1152, SLM.wait_For_Trigger, SLM.external_Pulse, SLM.timeout_ms);
+        if SLM.is_onek
+            calllib('Blink_C_wrapper', 'Write_image', 1, sequences(:,:,order(counter)), SLM.Nx*SLM.Ny, SLM.wait_For_Trigger,0, 1, 0, SLM.timeout_ms);
+        else
+            calllib('Blink_C_wrapper', 'Write_image', 1, sequences(:,:,order(counter)), 1920*1152, SLM.wait_For_Trigger, SLM.external_Pulse, SLM.timeout_ms);
+        end
         T(counter)=toc(t);
         
         t = tic;

@@ -1,51 +1,43 @@
-timeout = 1700; %12000;%35000; %1700;
+timeout = 1700;
 
 addpath(genpath('C:\Users\Holography\Desktop\holography'))
-addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));
+addpath(genpath('C:\Users\Holography\Desktop\meadowlark'))
 
-[Setup ] = function_loadparameters2();
-Setup.CGHMethod=2;
+Setup = function_loadparameters3();
+Setup.CGHMethod = 2; % now defaults to GSS
 Setup.verbose = 0;
-Setup.useGPU = 1;
+% Setup.useGPU = 1; % now defaults to GPU
 
-cycleiterations =1; % Change this number to repeat the sequence N times instead of just once
+cycleiterations = 1; % Change this number to repeat the sequence N times instead of just once
 
 %Overwrite delay duration
 Setup.TimeToPickSequence = 0.05;    %second window to select sequence ID
 Setup.SLM.timeout_ms = timeout;     %No more than 2000 ms until time out
-calibID =1;                     % Select the calibration ID (z1=1 but does not exist, Z1.5=2, Z1 sutter =3);
-
-
-disp('Loading Current Calibration, and HoloRequest...')
-% load('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\ActiveCalib.mat','CoC');
+% calibID = 1;                        % Select the calibration ID (z1=1 but does not exist, Z1.5=2, Z1 sutter =3);
 Setup.calib = 'C:\Users\Holography\Desktop\calibs\ActiveCalib.mat';
+
+disp('Loading current calibration...')
 load(Setup.calib,'CoC');
-
-disp('Loaded.')
-
+disp(['Successfully loaded CoC from: ', Setup.calib])
 %% now start msocket communication
  
 disp('Waiting for msocket communication')
 
-%%do this one first
-%then wait for a handshake
-srvsock = mslisten(42122); %3027
+srvsock = mslisten(42118); %3027
 masterSocket = msaccept(srvsock,6);
 msclose(srvsock)
 sendVar = 'A';
 mssend(masterSocket, sendVar);
-%MasterIP = '128.32.177.217';
-%masterSocket = msconnect(MasterIP,3002);
 
 invar = [];
+while ~strcmp(invar,'B')
+    invar = msrecv(masterSocket,.5);
+end
 
-while ~strcmp(invar,'B');
-invar = msrecv(masterSocket,.5);
-end;
-disp('communication from Master To Holo Established');
-%
-x = 1;     HRin = []; 
+disp('communication from Master To Holo Established')
 
+x = 1;     
+HRin = []; 
 while x>0
     HRin = msrecv(masterSocket,.5);
 
@@ -55,6 +47,7 @@ while x>0
         x=0;
     end
 end
+
 %%Load SI Coordinates
 
 if ~isfield(holoRequest,'ignoreROIdata')  %if we're doing things the old way
@@ -95,9 +88,7 @@ else
     disp('NO weights detected using flat weight')
 end
 
-AC=[];DE_list=[];
 [AC, DE_list] = computeDEfromList(SICoordinates, holoRequest.rois, weightsToUse);
-
 
 mssend(masterSocket,DE_list);  
 disp('Sent DE to master');
@@ -153,7 +144,7 @@ extraLarges =find( numTargets >= 50);
 
 
 %%Compile Holograms
-%optomized for our hologram computer that has a certain amount of gpu space
+% optomized for our hologram computer that has a certain amount of gpu space
 if size(weightsToUse,2)==1
     weightsToUse=weightsToUse';
 end
