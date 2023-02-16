@@ -1,6 +1,6 @@
 [X,Y] = meshgrid([0:10:510],[0:10:510]);
 test_pts = [X(:), Y(:)];
-test_pts(:,3)=0;
+test_pts(:,3)=30;
 output_test = function_Eval3DCoC(CoC.SItoSLM, test_pts);
 de_list = computeDEfromList(test_pts', num2cell(1:size(test_pts,1)'), ones(1,size(test_pts,1))');
 
