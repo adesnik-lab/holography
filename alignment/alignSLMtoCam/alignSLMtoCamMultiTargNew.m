@@ -80,7 +80,7 @@ function_BasPreview(Setup);
 %run this first then code on daq
 disp('Waiting for msocket communication From DAQ')
 %then wait for a handshake
-srvsock = mslisten(42118);
+srvsock = mslisten(42123);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -123,11 +123,11 @@ disp('communication from Master To SI Established');
 
 %% Set Power Levels
 
-pwr = 13; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
+pwr = 30; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoords = [.4 .42 -0.06 1];%[0.45 0.45 0 1];
+slmCoords = [.45 .45 -0.06 1];%[0.45 0.45 0 1];
 DEestimate = DEfromSLMCoords(slmCoords); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
@@ -184,7 +184,7 @@ moveTime=moveTo(Sutter.obj,position);
 tManual = toc(tBegin);
 %% Create a random set of holograms or use flag to reload
 disp('First step Acquire Holograms')
-reloadHolos =0;
+reloadHolos =1;
 tSingleCompile = tic;
  
 if ~reloadHolos
@@ -439,7 +439,7 @@ for k =1:numel(zsToUse)
     
     figure(1212);
     for hbtmpi=1:numel(SIUZ)
-        subplot(6,6,hbtmpi)
+        subplot(6,6,hbtmpi); colorbar;
         imagesc(dataUZ(:,:,hbtmpi));
     end
     pause(.5)
@@ -484,7 +484,7 @@ out.zsToUse =zsToUse;
 out.SIUZ = SIUZ;
 nGrids =size(SIVals,2);
 nOpt = size(zsToUse,2);
-fastWay = 0;
+fastWay = 1;
 
 clear SIpeakVal SIpeakDepth
 fprintf('Extracting point: ')
@@ -1240,14 +1240,14 @@ excludeTrials = excludeTrials | basVal>camMax; %max of this camera is 255
 basDimensions = size(Bgdframe);
 excludeTrials = excludeTrials | basXYZ(1,:)>=basDimensions(1)-1;
 excludeTrials = excludeTrials | basXYZ(2,:)>=basDimensions(2)-1;
-excludeTrials = excludeTrials | basXYZ(3,:)<-50; %9/19/19 Ian Added to remove systematic low fits
-excludeTrials = excludeTrials | basXYZ(3,:)>190;
+excludeTrials = excludeTrials | basXYZ(3,:)<-10; %9/19/19 Ian Added to remove systematic low fits
+excludeTrials = excludeTrials | basXYZ(3,:)>120;
 
 
 excludeTrials = excludeTrials | any(isnan(basXYZ(:,:)));
 excludeTrials = excludeTrials | basVal<1; %8/3 hayley add 5; Ian ammend to 1 9/13
 % excludeTrials = excludeTrials | basVal>(mean(basVal)+3*std(basVal)); %9/13/19 Ian Add
-excludeTrials = excludeTrials | basVal>700;
+excludeTrials = excludeTrials | basVal>150;
 
 slmXYZBackup = slmXYZ(:,~excludeTrials);
 basXYZBackup = basXYZ(:,~excludeTrials);
@@ -1302,14 +1302,14 @@ reOrder = randperm(size(slmXYZ,2));
 slmXYZ = slmXYZ(:,reOrder);
 basXYZ = basXYZ(:,reOrder);
 
-holdback = 50;%50;
+holdback = 20;%50;
 
 refAsk = (slmXYZ(1:3,1:end-holdback))';
 refGet = (basXYZ(1:3,1:end-holdback))';
 
 %  SLMtoCam = function_3DCoC(refAsk,refGet,modelterms);
 
-errScalar = 3; %2.8;%2.5;
+errScalar = 2; %2.8;%2.5;
 figure(1286);clf;
 [SLMtoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('SLM to Cam v1')
@@ -1550,7 +1550,7 @@ SImatchXY = camXYZ(1:2,1:625); %location of points in XYZ
 figure(8);clf;
 s=scatter(SImatchXY(1,:),SImatchXY(2,:),[],SImatchProb,'filled');
 
-SImatchThreshold = 0.5; % threshold for being in SI FOV (set to 0 to take whole range)
+SImatchThreshold = 0.2; % threshold for being in SI FOV (set to 0 to take whole range)
 
 SIx = SImatchXY(1,SImatchProb>SImatchThreshold);
 SIy = SImatchXY(2,SImatchProb>SImatchThreshold);
@@ -1951,7 +1951,7 @@ excludeTrials = excludeTrials | basXYZ4(3,:)>120;
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
 excludeTrials = excludeTrials | basVal4<5; %8/3 hayley add 5; Ian ammend to 1 9/13
 % excludeTrials = excludeTrials | basVal4>(mean(basVal4)+2*std(basVal4)); %9/13/19 Ian Add
-excludeTrials = excludeTrials | basVal4>250;
+excludeTrials = excludeTrials | basVal4>175;
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -2008,14 +2008,14 @@ reOrder = randperm(size(slmXYZ4,2));
 slmXYZ4 = slmXYZ4(:,reOrder);
 basXYZ4 = basXYZ4(:,reOrder);
 
-holdback = 500;%50;
+holdback = 300;%50;
 
 refAsk = (slmXYZ4(1:3,1:end-holdback))';
 refGet = (basXYZ4(1:3,1:end-holdback))';
 
 %  SLMtoCam = function_3DCoC(refAsk,refGet,modelterms);
 
-errScalar = 3; %2.8;%2.5;
+errScalar = 2.5; %2.8;%2.5;
 figure(1977);clf;subplot(1,2,1)
 [SLMtoCam, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,0);
 title('SLM to Cam v2')
@@ -2881,6 +2881,10 @@ tSave = tic;
 save(fullfile(pathToUse,[date '_Calib.mat']),'CoC')
 save(fullfile(pathToUse,'ActiveCalib.mat'),'CoC')
 
+pth = 'C:\Users\Holography\Desktop\calibs';
+save(fullfile(pth,[date '_Calib.mat']),'CoC')
+save(fullfile(pth,'ActiveCalib.mat'),'CoC')
+save(fullfile(pth,'CalibWorkspace.mat'), '-v7.3');
 
 
 % times.saveT = toc(tSave);
