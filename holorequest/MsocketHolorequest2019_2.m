@@ -117,11 +117,11 @@ SLMCoordinates(3,:) = round(SLMCoordinates(3,:),3); %Added 2/24/21 by Ian for fa
 
 %%x
 close
-f = figure('units','normalized','outerposition',[0.125 0.5 0.75 0.5]);
+f = figure('units','normalized','outerposition',[0.125 0.4 0.6 0.4]);
 
 subplot(1,3,1)
 scatter3(SICoordinates(1,:),SICoordinates(2,:),SICoordinates(3,:),[],SLMCoordinates(4,:),'filled'); 
-% colorbar;
+colorbar;
 xlabel('X, SI coordinates');ylabel('Y, SI coordinates'); zlabel('Z, SI coordinates'); title('Intensity Correction coefficients');
 subplot(1,3,2)
 scatter3(SLMCoordinates(1,:),SLMCoordinates(2,:),SLMCoordinates(3,:),[],SLMCoordinates(4,:),'filled'); 

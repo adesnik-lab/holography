@@ -1,23 +1,7 @@
-function MsocketHolorequest2019_2hb
+timeout = 30000; %12000;%35000; %1700;
 
-
-
-timeout = 9500; %12000;%35000; %1700;
-
-%removes everything from path
-% rmpath(genpath(['C:\Users\SLM\Documents\MATLAB\']));
-% rmpath(genpath(['C:\Users\SLM\D3esktop\SLM_Management\']));
-addpath(genpath('C:\Users\Holography\Documents\MATLAB\msocket\'));
-rmpath(genpath('C:\Users\Holography\Documents\GitHub\SLM-Managment\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\New_SLM_Code\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\NOVOCGH_Code\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\IanTestCode\'));
-addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\MSSocket_SLM\'));
-%addpath(genpath('C:\Users\Holography\Desktop\SLM_Management\SLM_MATLAB\'));
-%disp establishing write protocol to master
-disp('done pathing')
-
+addpath(genpath('C:\Users\Holography\Desktop\holography'))
+addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));
 
 [Setup ] = function_loadparameters2();
 Setup.CGHMethod=2;
@@ -33,8 +17,9 @@ calibID =1;                     % Select the calibration ID (z1=1 but does not e
 
 
 disp('Loading Current Calibration, and HoloRequest...')
-load('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\ActiveCalib.mat','CoC');
-% load([Setup.Holorequestpath 'HoloRequest.mat']);
+% load('C:\Users\Holography\Desktop\SLM_Management\Calib_Data\ActiveCalib.mat','CoC');
+Setup.calib = 'C:\Users\Holography\Desktop\calibs\ActiveCalib.mat';
+load(Setup.calib,'CoC');
 
 disp('Loaded.')
 
@@ -43,8 +28,8 @@ disp('Loaded.')
 disp('Waiting for msocket communication')
 
 %%do this one first
-%then wait for a handshake
-srvsock = mslisten(42114); %3027
+%then wait for a handshakeqq
+srvsock = mslisten(42122); %3027
 masterSocket = msaccept(srvsock,6);
 msclose(srvsock)
 sendVar = 'A';
@@ -132,11 +117,11 @@ SLMCoordinates(3,:) = round(SLMCoordinates(3,:),3); %Added 2/24/21 by Ian for fa
 
 %%x
 close
-f = figure('units','normalized','outerposition',[0.125 0.5 0.75 0.5]);
+f = figure('units','normalized','outerposition',[0.125 0.4 0.6 0.4]);
 
 subplot(1,3,1)
 scatter3(SICoordinates(1,:),SICoordinates(2,:),SICoordinates(3,:),[],SLMCoordinates(4,:),'filled'); 
-% colorbar;
+colorbar;
 xlabel('X, SI coordinates');ylabel('Y, SI coordinates'); zlabel('Z, SI coordinates'); title('Intensity Correction coefficients');
 subplot(1,3,2)
 scatter3(SLMCoordinates(1,:),SLMCoordinates(2,:),SLMCoordinates(3,:),[],SLMCoordinates(4,:),'filled'); 
