@@ -7,14 +7,7 @@ if ~strcmp(in,'y')
     return
 end
 
-% makePaths()
-addpath("sutter\")
-addpath("cameras\bascam\")
-addpath("cgh\")
-addpath("slm\")
-addpath(genpath("alignment\"))
-addpath(genpath("C:\Users\Holography\Desktop\meadowlark\"))
-addpath(genpath("msocket\"))
+makePaths()
 
 clear
 close all
