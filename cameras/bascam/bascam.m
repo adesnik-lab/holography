@@ -6,6 +6,7 @@ classdef bascam < handle
         camera_model = 'Y800_2048x1536';
         driver = 'winvideo';
         is_running = 0;
+        preview_bit_depth = 'auto';
     end
 
     properties (Constant)
@@ -36,6 +37,8 @@ classdef bascam < handle
             obj.vid.TriggerRepeat = Inf;
             triggerconfig(obj.vid, 'manual');
             obj.src = getselectedsource(obj.vid);
+            obj.src.Exposure = -3;
+            obj.src.Brightness = 33;
             fprintf('done.\r')
         end
 
@@ -55,10 +58,15 @@ classdef bascam < handle
 
         function preview(obj)
             f = figure('Name','Basler Preview', 'NumberTitle','off');
+            f.Position = [817 712 1000 800];
+            movegui(f, 'center')
             while isgraphics(f)
                 frame = obj.grab(1);
                 imagesc(frame)
-                caxis([0 2^obj.bit_depth-1])
+                axis image
+                if isa(obj.preview_bit_depth, 'double')
+                    caxis([0 obj.preview_bit_depth])
+                end
                 colorbar
                 drawnow
             end

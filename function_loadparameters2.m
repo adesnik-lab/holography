@@ -86,7 +86,7 @@ Setup.SLM.State =0;
 % Specify system for computation of hologramsparameters here
 Setup.verbose=1;           % 1 or 0    Set this value to 1 to display activity, 0 otherwise
 Setup.lambda = 1.03e-6;   % meters    Wavelength of the light
-Setup.focal_SLM = 0.2;     % meters    focal length of the telescope lens after slm.
+Setup.focal_SLM = 0.15;     % meters    focal length of the telescope lens after slm.
 
 
 

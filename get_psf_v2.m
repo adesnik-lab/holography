@@ -40,7 +40,7 @@ bas.preview()
 %run this first then code on daq
 fprintf('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42119);
+srvsock = mslisten(42120);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -65,8 +65,9 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 7;
-slmCoords = [.6 .6 -0.03 1];
+pwr = 10;
+slmCoords = [.4 .6 -0.025 1];
+
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -163,6 +164,7 @@ for i=1:numel(UZ)
     imagesc(frame);
     title(['Frame ' num2str(i)])
     colorbar
+%     axis equal
 %     clim([0 255])
 
     subplot(1,2,2)
@@ -170,6 +172,7 @@ for i=1:numel(UZ)
     colorbar
 %     clim([0 255])
     title('Max Projection')
+%     axis equal
     drawnow
 end
 

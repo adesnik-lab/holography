@@ -63,12 +63,13 @@ scale = 10;
 data= imresize(data, 1/scale);
 
 figure(1)
+clf
 imagesc(data)
 colorbar
 %%
-thresh = 1;
+thresh = 4;
 
-figure(125)
+figure(2)
 clf
 subplot(1,2,1)
 imagesc(data)
@@ -92,7 +93,7 @@ p=plot(SIxboundary,SIyboundary,'r');
 %% find holo on plane
 
 pwr = 10;
-slmCoords = [.6 .6 0 1];
+slmCoords = [0.6 0.6 -0.035 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 

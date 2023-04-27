@@ -35,7 +35,6 @@ try; function_close_sutter( Sutter ); end
 disp('Sutter Ready!')
 
 %% Basler
-addpath('cameras\bascam')
 
 bas = bascam();
 bas.start()
@@ -51,7 +50,7 @@ bas.preview()
 %run this first then code on daq
 disp('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42118);
+srvsock = mslisten(42120);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -72,7 +71,7 @@ disp('sent a blank phase')
 
 %% shoot single holo, no power control
 
-slmCoordsTemp = [0.1 0.1 0 1];
+slmCoordsTemp = [0.45 0.45 -.025 1];
 
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 DEestimateTemp = DEfromSLMCoords(slmCoordsTemp); %
@@ -106,9 +105,9 @@ title('Hologram sent to SLM')
 % must be connected to daq computer
 
 % input power in mW
-pwr = 150;
+pwr = 8;
 
-slmCoordsTemp = [0.55 0.4 0 1];
+slmCoordsTemp = [0.6 0.5 -0.015 1];
 % slmCoordsTemp = [[0.13 .15 0.02 1];...
 %                  [0.05 .80 0.02 1];...
 %                  [1.0 .4 0.02 1];...
@@ -124,9 +123,11 @@ slmCoordsTemp = [0.55 0.4 0 1];
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 Function_Feed_SLM(Setup.SLM, HoloTemp);
 disp('sent SLM')
+% figure(124)
+% imagesc(HoloTemp)
 
 mssend(masterSocket, [pwr/1000 1 1]);
-% bas.preview()
+bas.preview()
 % figure
 % frame = bas.grab(3);
 % imagesc(mean(frame, 3), [0, 24])

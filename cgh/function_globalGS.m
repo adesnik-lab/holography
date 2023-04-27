@@ -10,11 +10,11 @@ end
 ims = Masks;
 [NX,NY,NZ] = size(Masks);
 
-% if System.useGPU == 1
-%     imageInten = zeros(NX,NY,NZ, 'gpuArray');
-% else
-%     imageInten = zeros(NX,NY,NZ);
-% end
+if System.useGPU == 1
+    imageInten = zeros(NX,NY,NZ, 'gpuArray');
+else
+    imageInten = zeros(NX,NY,NZ);
+end
 
 vv = System.verbose;
 System.verbose = 0;

@@ -56,7 +56,7 @@ disp('sent a blank phase')
 
 %% shoot a single holo
 
-slmCoordsTemp = [.5 .6 0 1];%[0.276 .4633 .01676 1];%[0.4 0.75 0.01 1];
+slmCoordsTemp = [.5 .55 0 1];%[0.276 .4633 .01676 1];%[0.4 0.75 0.01 1];
 
 
 DEestimateTemp = DEfromSLMCoords(slmCoordsTemp); %
@@ -97,6 +97,6 @@ function_BasPreview(Setup);
 % mssend(masterSocket,[0 1 1]);
 
 %% preview in basler multi
-mssend(masterSocket,[multi_pwr/1000 1 1]);
+mssend(masterSocket,[pwr/1000 1 1]);
 function_BasPreview(Setup);
 mssend(masterSocket,[0 1 1]);

@@ -1,5 +1,7 @@
 function [CoC, trialN] = function_3DCoCIterative(refAsk,refGet,modelterms,errScalar,Verbose,axisHandle)
 if nargin<6
+    figure(321)
+    clf
     axisHandle = gca;
 end
 
