@@ -304,35 +304,32 @@ disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
 
 %% CamToOpt
 % refactor me!
-modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
-    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
-    2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
-     2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
+
+ttSplit = 0.2; % percentage of point in the test set
+modelterms = getSImodel();
 
 nOpt = numel(optotunePlanes);
+
+% create a grid of X,Y position with value
 camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
 camXYZ(3,:) =  SIpeakDepth(:);
-
 camPower = SIpeakVal(:);
+
 nGrids =size(SIVals,2);
 optZ = repmat(optotunePlanes,[nGrids 1]);
 optZ = optZ(:);
 
-testSet = randperm(numel(optZ),50);
+% split train and test sets
+cvp = cvpartition(numel(optZ), 'Holdout', ttSplit);
+trainIdx = cvp.training;
+testIdx = cvp.test;
 
-otherSet = ones([numel(optZ) 1]);
-otherSet(testSet)=0;
-otherSet = logical(otherSet);
-
-refAsk = (camXYZ(1:3,otherSet))';
-refGet = optZ(otherSet);
-
+refAsk = camXYZ(1:3,trainIdx)';
+refGet = optZ(trainIdx);
 camToOpto =  polyfitn(refAsk,refGet,modelterms);
 
-
-Ask = camXYZ(1:3,testSet)';
-True = optZ(testSet);
-
+Ask = camXYZ(1:3,testIdx)';
+True = optZ(testIdx);
 Get = polyvaln(camToOpto,Ask);
 
 RMS = sqrt(sum((Get-True).^2,2));
