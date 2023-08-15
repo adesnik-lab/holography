@@ -17,7 +17,7 @@ xx = Coordinates(:,1);
 yy = Coordinates(:,2);
 zz = Coordinates(:,3);
 
-badpoints =  double((double(xx<0) +double(yy<0)+ double(xx>1) +double(xx>1))>0);
+badpoints =  double((double(xx<0) +double(yy<0)+ double(xx>1) +double(yy>1))>0);
 if sum(badpoints)>0
     disp('Bad Warning : We are going to ignore some points that are out of SLM range') %to updat with an error idalog box
 end
