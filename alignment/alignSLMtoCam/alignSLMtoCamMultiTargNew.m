@@ -63,7 +63,7 @@ try function_stopBasCam(Setup); end
 [Setup] = function_startBasCam(Setup);
 
 
-if Setup.useThorCam
+if Setup.useThorCam 
     castImg = @uint16;
     castAs = 'uint16';
     camMax = 65535;
@@ -126,11 +126,11 @@ disp('communication from Master To SI Established');
 
 %% Set Power Levels
 
-pwr = 10; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
+pwr = 14; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoords = [.4 .4 -.01 1];%[0.45 0.45 0 1];
+slmCoords = [.4 .4 -.015 1];%[0.45 0.45 0 1];
 DEestimate = DEfromSLMCoords(slmCoords); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
@@ -188,7 +188,7 @@ moveTime=moveTo(Sutter.obj,position);
 tManual = toc(tBegin);
 %% Create a random set of holograms or use flag to reload
 disp('First step Acquire Holograms')
-reloadHolos = 1;
+reloadHolos = 0;
 tSingleCompile = tic;
  
 if ~reloadHolos
@@ -207,7 +207,7 @@ if ~reloadHolos
     
     % set Z range
 %     slmZrange =[-.08 -0.02];
-    slmZrange = [-0.007 -0.035];
+    slmZrange = [-0.015 -0.035];
     % 12/29/22 WH - should be roughly +145 um (-0.04 SLM) to -30 um (0.025 SLM)
  
     %3/11/21 IO.  %%[-0.02 0.07];%9/19/19 % [-0.1 0.15];
@@ -2407,7 +2407,7 @@ disp('linked')
 
 %setup acquisition
 
-numVol = 5; %number of SI volumes to average
+numVol = 7; %number of SI volumes to average
 baseName = '''calib''';
 
 mssend(SISocket,['hSI.hStackManager.arbitraryZs = [' num2str(zsToBlast) '];']);
@@ -2415,7 +2415,7 @@ mssend(SISocket,['hSI.hStackManager.numVolumes = [' num2str(numVol) '];']);
 mssend(SISocket,'hSI.hStackManager.enable = 1 ;');
 
 mssend(SISocket,'hSI.hBeams.pzAdjust = 0;');
-mssend(SISocket,'hSI.hBeams.powers = 14;'); %power on SI laser. important no to use too much don't want to bleach
+mssend(SISocket,'hSI.hBeams.powers = 16;'); %power on SI laser. important no to use too much don't want to bleach
 
 mssend(SISocket,'hSI.extTrigEnable = 0;'); %savign
 mssend(SISocket,'hSI.hChannels.loggingEnable = 1;'); %savign
@@ -2621,7 +2621,7 @@ for i=4:numel(files)
             baseFrame = Frames{k}(:,:,c-1);
             
             %try to exclude those very bright spots
-            maskFR = imgaussfilt(Frame,3) - imgaussfilt(Frame,16);
+            maskFR = imgaussfilt(Frame,3) - imgaussfilt(Frame,15);
             mask = maskFR > mean(maskFR(:))+6*std(maskFR(:));
             
             %remove the low frequency slide illumination differences

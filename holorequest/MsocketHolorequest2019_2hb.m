@@ -29,7 +29,7 @@ disp('Waiting for msocket communication')
 
 %%do this one first
 %then wait for a handshakeqq
-srvsock = mslisten(42122); %3027
+srvsock = mslisten(42126); %3027
 masterSocket = msaccept(srvsock,6);
 msclose(srvsock)
 sendVar = 'A';
@@ -75,7 +75,21 @@ if ~isfield(holoRequest,'ignoreROIdata')  %if we're doing things the old way
         SICoordinates(3,i) = ROIdata.rois(i).OptotuneDepth;
     end
     SLMCoordinates = zeros(4,LN);
+elseif 0
+        %if im doing hayleys weird affine fix
+        unique_depths = unique(holoRequest.targets(:,3))
+        LN = size(holoRequest.targets,1);
+    SLMCoordinates = zeros(4,LN);  
     
+        for i=1:LN
+            SICoordinates(i,:) = holoRequest.targets(i,:);
+            this_x = holoRequest.xoffset(find(unique_depths==SICoordinates(i,3),1));
+            this_y = holoRequest.yoffset(find(unique_depths==SICoordinates(i,3),1));
+            SICoordinates(:,1)=SICoordinates(:,1)+this_x;
+            SICoordinates(:,2)=SICoordinates(:,2)+this_y;    
+            SICoordinates=SICoordinates';
+        end
+
 else  %if I'm doing a custom sequence
   LN = size(holoRequest.targets,1);
     SLMCoordinates = zeros(4,LN);  
