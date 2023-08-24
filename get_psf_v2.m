@@ -15,15 +15,15 @@ Setup.CGHMethod = 2;
 Setup.GSoffset = 0;
 Setup.verbose = 0;
 Setup.useGPU = 1;
-Setup.SLM.is_onek = 1;
 
 if Setup.useGPU
-    disp('Getting gpu...'); %this can sometimes take a while at initialization
-    g= gpuDevice;
+    fprintf('Getting gpu... '); %this can sometimes take a while at initialization
+    g = gpuDevice;
+    fprintf('done.\r')
 end
 
-Setup.SLM = Function_Stop_SLM( Setup.SLM );
-Setup.SLM = Function_Start_SLM( Setup.SLM );
+slm = MeadowlarkSLM();
+slm.start()
 
 sutter = sutterController();
 
@@ -38,20 +38,9 @@ bas.preview()
 %% connect to DAQ computer
 
 %run this first then code on daq
-fprintf('Waiting for msocket communication From DAQ... ')
-%then wait for a handshake
-srvsock = mslisten(42120);
-masterSocket = msaccept(srvsock,15);
-msclose(srvsock);
-sendVar = 'A';
-mssend(masterSocket, sendVar);
 
-invar = [];
+laser = LaserSocket(42133);
 
-while ~strcmp(invar,'B')
-    invar = msrecv(masterSocket,.5);
-end
-fprintf('done.\r')
 
 %% set power levels
 
@@ -65,8 +54,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 10;
-slmCoords = [.4 .6 -0.025 1];
+pwr = 2.4;
+slmCoords = [.55 .45 0 1];
 
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
@@ -75,19 +64,19 @@ DEestimate = DEfromSLMCoords(slmCoords);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
 [Holo, Reconstruction, Masksg] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
-Function_Feed_SLM(Setup.SLM, Holo);
-mssend(masterSocket, [pwr/1000 1 1]);
+slm.feed(Holo)
+laser.set_power(pwr)
 bas.preview()
-mssend(masterSocket, [0 1 1]);
+laser.set_power(0)
 
 %% check pixel val
 bgd_frames = bas.grab(10);
 bgd = mean(bgd_frames, 3);
 
-mssend(masterSocket, [pwr/1000 1 1]);
+laser.set_power(pwr)
 data = bas.grab(10);
-mssend(masterSocket, [0 1 1]);
-mssend(masterSocket, [0 1 1]);
+laser.set_power(0)
+
 data = mean(data,3);
 frame = max(data-bgd, 0);
 [x,y] = function_findcenter(frame);
@@ -108,6 +97,7 @@ text(0.03*xL(2),0.03*yL(2),str,'HorizontalAlignment','left','VerticalAlignment',
 
 %% Measure background noise in camera
 
+
 bgd_frames = bas.grab(10);
 bgd = mean(bgd_frames, 3);
 
@@ -115,14 +105,14 @@ meanBgd = mean(bgd_frames, 'all');
 stdBgd = std(double(bgd_frames), [], 'all');
 
 %%Collect PSF
-nframesCapture = 10;
+nframesCapture = 5;
 
 figure(1); clf
 
 sutter.setRef()
 
 sz = size(bgd);
-UZ= linspace(-70,70,21);
+UZ = linspace(-50,50,31);
 
 dataUZ = zeros([sz numel(UZ)]);
 
@@ -138,19 +128,9 @@ for i=1:numel(UZ)
         pause(0.1);
     end
 
-    mssend(masterSocket,[pwr/1000 1 1]);
-    invar=[];
-    while ~strcmp(invar,'gotit')
-        invar = msrecv(masterSocket,0.01);
-    end
-
+    laser.set_power(pwr)
     data = bas.grab(nframesCapture);
-
-    mssend(masterSocket,[0 1 1]);
-    invar=[];
-    while ~strcmp(invar,'gotit')
-        invar = msrecv(masterSocket,0.01);
-    end
+    laser.set_power(0)
 
      % process frame grabs
     data = mean(data, 3);
@@ -180,7 +160,7 @@ sutter.moveToRef()
 
 disp('Done collecting PSF stack.')
 
-% Calc FWHM
+%%Calc FWHM
 
 mxProj = max(dataUZ,[],3);
 [ x,y ] =function_findcenter(mxProj);
@@ -188,14 +168,15 @@ mxProj = max(dataUZ,[],3);
 range = 2;
 
 dimx = max((x-range),1):min((x+range),size(frame,1));
-dimy =  max((y-range),1):min((y+range),size(frame,2));
+dimy = max((y-range),1):min((y+range),size(frame,2));
 
 thisStack = squeeze(mean(mean(dataUZ(dimx,dimy,:))));
 [a, peakPlane ] = max(thisStack);
 peakFrame = dataUZ(:,:,peakPlane);
+thisStack = thisStack - min(thisStack);
 
 % determine pxPerMu with sutter
-muUsed= 50;
+muUsed = 50;
 
 disp('Determining pxPerMu.')
 
@@ -203,20 +184,10 @@ xyz = [0 0 UZ(peakPlane)];
 sutter.moveTo(xyz)
 pause(1)
 
-mssend(masterSocket,[pwr/1000 1 1]);
-invar=[];
-while ~strcmp(invar,'gotit')
-    invar = msrecv(masterSocket,0.01);
-end
-
+laser.set_power(pwr)
 data = bas.grab(nframesCapture);
 data = mean(data, 3);
-
-mssend(masterSocket,[0 1 1]);
-invar=[];
-while ~strcmp(invar,'gotit')
-    invar = msrecv(masterSocket,0.01);
-end
+laser.set_power(0)
 
 frame = max(data-bgd, 0);
 pos1 = imgaussfilt(frame, 2);
@@ -225,20 +196,10 @@ xyz = [0 muUsed UZ(peakPlane)];
 sutter.moveTo(xyz)
 pause(1)
 
-mssend(masterSocket,[pwr/1000 1 1]);
-invar=[];
-while ~strcmp(invar,'gotit')
-    invar = msrecv(masterSocket,0.01);
-end
-
+laser.set_power(pwr)
 data = bas.grab(nframesCapture);
 data = mean(data, 3);
-
-mssend(masterSocket,[0 1 1]);
-invar=[];
-while ~strcmp(invar,'gotit')
-    invar = msrecv(masterSocket,0.01);
-end
+laser.set_power(0)
 
 frame = max(data-bgd, 0);
 pos2 = imgaussfilt(frame, 2);
