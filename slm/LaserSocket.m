@@ -31,6 +31,13 @@ classdef LaserSocket < handle
                 invar = msrecv(obj.sock,0.01);
             end
         end
+
+        function flush(obj)
+            invar = 'flush';
+            while ~isempty(invar)
+                invar = msrecv(obj.sock,0.01);
+            end
+        end
     end
 end
 
