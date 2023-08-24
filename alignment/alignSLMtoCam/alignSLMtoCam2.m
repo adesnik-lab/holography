@@ -1,13 +1,12 @@
 %% Pathing and setup
 
-% guards against hitting F5 instead of F9
-in = input('Run Calibration? (y/n) ','s');
-if ~strcmp(in,'y')
-    disp('Did not detect ''y'' so not executing')
-    return
-end
+rt = 'C:\Users\Holography\Desktop\holography\';
+cd(rt)
+addpath(genpath('C:\Users\Holography\Desktop\holography'))
+addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));
 
-makePaths()
+f5_idiot_check()
+
 
 clear
 close all
@@ -29,8 +28,8 @@ if Setup.useGPU
     g= gpuDevice;
 end
 
-[Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
-[ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
+slm = MeadowlarkSLM();
+slm.start()
 
 sutter = sutterController();
 mvShortWait = 0.1;
@@ -39,10 +38,6 @@ mvLongWait = 1;
 bas = bascam();
 bas.start()
 
-% these may no longer be needed...
-castImg = bas.castFun;
-castAs = bas.castAs;
-camMax = bas.camMax;
 
 disp('Ready')
 %% look for objective in 1p
@@ -51,21 +46,11 @@ bas.preview()
 
 %% connect to DAQ computer
 
-%run this first then code on daq
-disp('Waiting for msocket communication From DAQ... ')
-%then wait for a handshake
-srvsock = mslisten(42118);
-masterSocket = msaccept(srvsock,15);
-msclose(srvsock);
-sendVar = 'A';
-mssend(masterSocket, sendVar);
+% run this first then code on daq
+% daq code is probably called alignCodeDAQ.m
 
-invar = [];
+laser = LaserSocket(42133);
 
-while ~strcmp(invar,'B')
-    invar = msrecv(masterSocket,.5);
-end
-fprintf('done.\r')
 %% connect to ScanImage computer
 
 % run this code first, then 'autoCalibSI' on SI computer
@@ -105,17 +90,18 @@ DEestimate = DEfromSLMCoords(slmCoords);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
 [Holo, Reconstruction, Masksg] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
-Function_Feed_SLM(Setup.SLM, Holo);
-mssend(masterSocket, [pwr/1000 1 1]);
+
+slm.feed(Holo)
+laser.set_power(pwr)
 bas.preview()
-mssend(masterSocket, [0 1 1]);
+laser.set_power(0)
 
 %% center FOV
 
 disp('Find Focal Plane, Center and Zero the Sutter')
 disp('Leave the focus at Zoom 1. at a power that is less likely to bleach (14% 25mW)') %25% 8/16/19
 disp('Don''t forget to use Ultrasound Gel on the objective so it doesn''t evaporate')
-mssend(masterSocket,[0 1 1]);
+laser.set_power(0)
 
 bas.preview()
 
@@ -169,6 +155,7 @@ bgd = mean(bgd_frames, 3);
 meanBgd = mean(bgd_frames, 'all');
 stdBgd = std(single(bgd_frames), [], 'all');
 
+
 %% Capture ScanImage/Optotune Planes Data
 
 clear SIdepthData
@@ -184,11 +171,12 @@ ys = round(linspace(1,sz(2),gridpts+2));
 xs([1 end])=[];
 ys([1 end])=[];
 
+% create XY point pairs
 [X,Y] = meshgrid(xs, ys);
 XYSI = [X(:) Y(:)]';
 
 clear dimx dimy XYSI2
-range =15;
+range = 15;
 c=0;
 for i=1:gridpts
     for k=1:gridpts
@@ -234,11 +222,13 @@ for k=1:numel(optotunePlanes)
         end
         
         data = bas.grab(nframesCapture);
-
+        
+        % post process capture
         data = mean(data, 3);
         frame = max(data-bgd, 0);
         frame = imgaussfilt(frame, 2);
-
+        
+        % save data, (x,y,plane)
         dataUZ(:,:,i) =  frame;
 
     end
@@ -263,19 +253,27 @@ mssend(SISocket,'end');
 % disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
 
 %% Extract and do fits
+% i think this can be done with accumarray then reshape
+% eg.
+% compartmentID = colID + (rowID-1) * nRows ;
+% compMean = accumarray( compartmentID(:), data_yr(:), [], @mean ) ;
+% also mean2 might be helpful
+
+
+%%
 
 SIVals = zeros([SIpts c numel(sutterPlanes)]);
 
 for k = 1:numel(SIdepthImages)
     for i =1:c
         tmp = SIdepthImages{k};
-        SIVals(:,i,k) = squeeze(mean(mean(tmp(dimx(:,i),dimy(:,i),:))));
+        SIVals(:,i,k) = squeeze(mean(mean(tmp(dimx(:, i), dimy(:, i), :))));
     end
 end
 
-SIfits = extractScanImageFits(SIVals, optotunePlanes, sutterPlanes);
-SIpeakVal = SIfits.SIpeakVal;
-SIpeakDepth = SIfits.SIpeakDepth;
+SIgrids = extractScanImageFits(SIVals, optotunePlanes, sutterPlanes);
+SIpeakVal = SIgrids.SIpeakVal;
+SIpeakDepth = SIgrids.SIpeakDepth;
 
 % exclusions
 SIThreshHold = 3*stdBgd/sqrt(nBackgroundFrames + nframesCapture);
@@ -295,48 +293,18 @@ SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
 
-%% CamToOpt
-% refactor me!
-modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
-    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
-    2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
-     2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
+%% (new refactored fitting of camToOpto)
 
-nOpt = numel(optotunePlanes);
-camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
-camXYZ(3,:) =  SIpeakDepth(:);
+% run fits and save to CoC
+SIfits = fit_scanimage(optotunePlanes, SIpeakDepth, SIpeakVal);
 
-camPower = SIpeakVal(:);
-nGrids =size(SIVals,2);
-optZ = repmat(optotunePlanes,[nGrids 1]);
-optZ = optZ(:);
-
-testSet = randperm(numel(optZ),50);
-
-otherSet = ones([numel(optZ) 1]);
-otherSet(testSet)=0;
-otherSet = logical(otherSet);
-
-refAsk = (camXYZ(1:3,otherSet))';
-refGet = optZ(otherSet);
-
-camToOpto =  polyfitn(refAsk,refGet,modelterms);
+CoC.camToOpto = SIfits.camToOpto;
 
 
-Ask = camXYZ(1:3,testSet)';
-True = optZ(testSet);
+figure(2)
+clf
 
-Get = polyvaln(camToOpto,Ask);
-
-RMS = sqrt(sum((Get-True).^2,2));
-meanRMS = nanmean(RMS);
-
-CoC.camToOpto= camToOpto;
-%%fig
-f201=figure(201);clf
-f201.Units = 'normalized';
-% f201.Position = [0 0 0.25 0.45];
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],camPower,'filled');
+scatter3(camXYZ(1,:), camXYZ(2,:), camXYZ(3,:),[],camPower,'filled');
 ylabel('Y Axis pixels')
 xlabel('X axis pixels')
 zlabel('Z axis \mum')
