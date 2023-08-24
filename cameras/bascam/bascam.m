@@ -56,7 +56,10 @@ classdef bascam < handle
             end
         end
 
-        function preview(obj)
+        function preview(obj, disp_bit_depth)
+            if nargin < 2
+                disp_bit_depth = obj.preview_bit_depth;
+            end
             f = figure('Name','Basler Preview', 'NumberTitle','off');
             f.Position = [817 712 1000 800];
             movegui(f, 'center')
@@ -64,8 +67,8 @@ classdef bascam < handle
                 frame = obj.grab(1);
                 imagesc(frame)
                 axis image
-                if isa(obj.preview_bit_depth, 'double')
-                    caxis([0 obj.preview_bit_depth])
+                if isa(disp_bit_depth, 'double')
+                    caxis([0 2^disp_bit_depth-1])
                 end
                 colorbar
                 drawnow
@@ -91,7 +94,7 @@ classdef bascam < handle
 
         function set.exposure(obj, exposure)
             obj.stop()
-            obj.src.exposure = exposure;
+            obj.src.Exposure = exposure;
             obj.start()
         end
 
