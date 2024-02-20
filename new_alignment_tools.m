@@ -10,7 +10,7 @@ tBegin = tic;
 
 disp('Setting up stuff...');
 
-Setup = function_loadparameters2();
+Setup = function_loadparameters3();
 Setup.CGHMethod=2;
 Setup.GSoffset=0;
 Setup.verbose =0;
@@ -22,8 +22,8 @@ if Setup.useGPU
     g= gpuDevice;
 end
 
-[Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
-[ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
+slm = MeadowlarkSLM();
+slm.start()
 
 disp('SLM Ready!')
 %% Sutter
@@ -50,7 +50,7 @@ bas.preview()
 %run this first then code on daq
 disp('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42120);
+srvsock = mslisten(42134);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -65,23 +65,22 @@ fprintf('done.\r')
 
 %% blank phase on SLM
 
-blankHolo = zeros([1024 1024]);
-Function_Feed_SLM(Setup.SLM, blankHolo);
-disp('sent a blank phase')
+slm.blank()
 
 %% shoot single holo, no power control
 
-slmCoordsTemp = [0.45 0.45 -.025 1];
+slmCoordsTemp = [0.55 0.55 -0.12 1];
 
-[ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
-DEestimateTemp = DEfromSLMCoords(slmCoordsTemp); %
+[ HoloTemp,~,~ ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
+DEestimateTemp = DEfromSLMCoords(slmCoordsTemp);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimateTemp)])
-Function_Feed_SLM(Setup.SLM, HoloTemp);
+slm.feed(HoloTemp)
 disp('sent SLM')
 
 figure(124)
 clf
 imagesc(HoloTemp)
+colorbar
 title('Hologram sent to SLM')
 
 %% shoot multi holo, no power control
@@ -92,7 +91,7 @@ slmCoordsTemp = [[0.30 .40 0.1 1];...
                  [0.60 .40 0 1]];
 
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
-Function_Feed_SLM(Setup.SLM, HoloTemp);
+% Function_Feed_SLM(Setup.SLM, HoloTemp);
 disp('sent SLM')
 
 figure(124)
@@ -105,9 +104,9 @@ title('Hologram sent to SLM')
 % must be connected to daq computer
 
 % input power in mW
-pwr = 8;
+pwr = 10;
 
-slmCoordsTemp = [0.6 0.5 -0.015 1];
+slmCoordsTemp = [0.06 0.96 0.006 1];
 % slmCoordsTemp = [[0.13 .15 0.02 1];...
 %                  [0.05 .80 0.02 1];...
 %                  [1.0 .4 0.02 1];...
@@ -121,7 +120,7 @@ slmCoordsTemp = [0.6 0.5 -0.015 1];
 %                  [0.60 .60 0.02 1]];
 
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
-Function_Feed_SLM(Setup.SLM, HoloTemp);
+slm.feed(HoloTemp)
 disp('sent SLM')
 % figure(124)
 % imagesc(HoloTemp)
