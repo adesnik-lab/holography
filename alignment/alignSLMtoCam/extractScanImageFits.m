@@ -1,8 +1,9 @@
 function result = extractScanImageFits(SIVals, zsToUse, SIUZ)
 
+fastWay = 0;
+
 nGrids =size(SIVals,2);
 nOpt = size(zsToUse,2);
-fastWay = 0;
 
 clear SIpeakVal SIpeakDepth
 fprintf('Extracting point: ')
