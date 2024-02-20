@@ -39,7 +39,7 @@ bas.preview()
 
 %run this first then code on daq
 
-laser = LaserSocket(42133);
+laser = LaserSocket(42134);
 
 
 %% set power levels
@@ -54,8 +54,8 @@ laser = LaserSocket(42133);
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 2.4;
-slmCoords = [.55 .45 0 1];
+pwr = 13;
+slmCoords = [.6 .4 0 1];
 
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
@@ -144,6 +144,10 @@ for i=1:numel(UZ)
     imagesc(frame);
     title(['Frame ' num2str(i)])
     colorbar
+    use_max_for_clim = 1;
+    if use_max_for_clim
+        clim([0 mx*1.1])
+    end
 %     axis equal
 %     clim([0 255])
 
