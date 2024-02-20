@@ -1,7 +1,7 @@
 timeout = 1700; %12000;%35000; %1700;
 
 addpath(genpath('C:\Users\Holography\Desktop\holography'))
-addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));
+addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));qq
 
 [Setup ] = function_loadparameters2();
 Setup.CGHMethod=2;
@@ -29,7 +29,7 @@ disp('Waiting for msocket communication')
 
 %%do this one first
 %then wait for a handshake
-srvsock = mslisten(42122); %3027
+srvsock = mslisten(42128); %3027
 masterSocket = msaccept(srvsock,6);
 msclose(srvsock)
 sendVar = 'A';

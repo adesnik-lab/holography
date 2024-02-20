@@ -23,8 +23,8 @@ disp(['Successfully loaded CoC from: ', Setup.calib])
  
 disp('Waiting for msocket communication')
 
-srvsock = mslisten(42118); %3027
-masterSocket = msaccept(srvsock,6);
+srvsock = mslisten(42131); %3027
+masterSocket = msaccept(srvsock,10);
 msclose(srvsock)
 sendVar = 'A';
 mssend(masterSocket, sendVar);

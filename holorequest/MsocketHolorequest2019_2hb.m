@@ -29,7 +29,7 @@ disp('Waiting for msocket communication')
 
 %%do this one first
 %then wait for a handshakeqq
-srvsock = mslisten(42126); %3027
+srvsock = mslisten(42129); %3027
 masterSocket = msaccept(srvsock,6);
 msclose(srvsock)
 sendVar = 'A';

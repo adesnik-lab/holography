@@ -27,7 +27,7 @@ disp('Loaded.')
 [ Setup.SLM ] = Function_Stop_SLM( Setup.SLM );
 [ Setup.SLM ] = Function_Start_SLM( Setup.SLM );
 
-% [Setup] = function_startBasCam(Setup);
+[Setup] = function_startBasCam(Setup);
 
 disp('ready')
 %% if you want to pair

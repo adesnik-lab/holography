@@ -1,4 +1,4 @@
-function alignSLMtoCamMultiTargNew
+%function alignSLMtoCamMultiTargNew
 %% Pathing
 in = input('Run Calibration? (y/n)','s');
 if ~strcmp(in,'y')
@@ -126,15 +126,15 @@ disp('communication from Master To SI Established');
 
 %% Set Power Levels
 
-pwr = 14; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
+pwr = 11; %updated 3/10/21 for 2 MHz % something like this for 100 divided mode 9/22/20 %40; %13 at full; 50 at 15 divided %70 mW at 100 divided mode 10-29-19
 disp(['individual hologram power set to ' num2str(pwr) 'mW']);
 %%
 disp('Find the spot and check if this is the right amount of power')
-slmCoords = [.4 .4 -.015 1];%[0.45 0.45 0 1];
+slmCoords3 = [.97 .2 0.015 1];%[0.45 0.45 0 1];
 DEestimate = DEfromSLMCoords(slmCoords); %
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
-[ Holo,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos( Setup,slmCoords );
+[ Holo,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos( Setup,slmCoords3 );
 
 blankHolo = zeros([1024 1024]);
 % Function_Feed_SLM( Setup.SLM, blankHolo);
@@ -188,7 +188,7 @@ moveTime=moveTo(Sutter.obj,position);
 tManual = toc(tBegin);
 %% Create a random set of holograms or use flag to reload
 disp('First step Acquire Holograms')
-reloadHolos = 0;
+reloadHolos = 1;
 tSingleCompile = tic;
  
 if ~reloadHolos
@@ -202,12 +202,12 @@ if ~reloadHolos
     
     %ranges set by exploration moving holograms looking at z1 fov.
     %updated 3/10/21 (new SLM)
-    slmXrange = [0.05 0.98];%7/23/21 [.2 .9]; %[0.125 0.8]; %[0.5-RX 0.4+RX]; %you want to match these to the size of your imaging area
-    slmYrange = [0.05 0.98];%7/23/21 [.05 0.9];%9/19/19 [.01 .7];% [0.075 0.85];%[0.5-RY 0.5+RY];
+    slmXrange = [0.06 0.96];%7/23/21 [.2 .9]; %[0.125 0.8]; %[0.5-RX 0.4+RX]; %you want to match these to the size of your imaging area
+    slmYrange = [0.06 0.94];%7/23/21 [.05 0.9];%9/19/19 [.01 .7];% [0.075 0.85];%[0.5-RY 0.5+RY];
     
     % set Z range
 %     slmZrange =[-.08 -0.02];
-    slmZrange = [-0.015 -0.035];
+    slmZrange = [-0.017 0.018];
     % 12/29/22 WH - should be roughly +145 um (-0.04 SLM) to -30 um (0.025 SLM)
  
     %3/11/21 IO.  %%[-0.02 0.07];%9/19/19 % [-0.1 0.15];
@@ -755,7 +755,7 @@ axis square
 % 
 % mssend(masterSocket,[0 1 1]);
 
-%% Coarse Data
+%% Coarse Data abt 35 min
 tstart=tic;%Coarse Data Timer
 
 disp('Begining Coarse Holo spot finding')
@@ -824,14 +824,15 @@ for i = 1:numel(coarseUZ)
         frame =  max(frame-Bgd,0);
         frame = imgaussfilt(frame,2);
         frame = imresize(frame,newSize);
+        fprintf(num2str(max(frame(:))));
         dataUZ2(:,:,i,k) =  frame;
         
-        %          figure(1);
-        %          subplot(1,2,1);
-        %          imagesc(frame);
-        %          subplot(1,2,2);
-        %          imagesc(nanmean(dataUZ,3));
-        %          drawnow
+%                  figure(1);
+%                  subplot(1,2,1);
+%                  imagesc(frame);
+%                  subplot(1,2,2);
+%                  imagesc(nanmean(dataUZ,3));
+%                  drawnow
     end
     fprintf(['\nPlane Took ' num2str(toc(t)) ' seconds\n'])
     
@@ -841,6 +842,7 @@ position = Sutter.Reference;
 moveTime=moveTo(Sutter.obj,position);
 pause(0.1)
 %%
+
 disp('Calculating Depths and Vals')
 range=ceil(5/sizeFactor);%Should be scaled by sizeFactor, also shrunk -Ian 7/16/2020 %Range for Hologram analysis window Changed to 5 9/16/19 by Ian
 for k=1:npts
@@ -857,6 +859,7 @@ for k=1:npts
     thisStack = squeeze(mean(mean(dataUZ(dimx,dimy,:))));
     vals(:,k) = thisStack;
     depthIndex = find(thisStack == max(thisStack),1);
+    pkvals(k)= round(vals(depthIndex,k));
     
     fprintf(['Spot ' num2str(k) ' centered at depth ' num2str(round(coarseUZ(depthIndex)))...
         'um. Value: ' num2str(round(vals(depthIndex,k))) '\n']);
@@ -1027,7 +1030,7 @@ out.multiHolo = multiHolo;
 
 %%
 clear peakValue peakDepth peakFWHM
-%%
+%% pretty variable time, maybe 50 min?
 background = function_BasGetFrame(Setup,20); % changed from 3 7/15/20
 range = 6;
 box_range = 20; % 7/15/20 changed from 50 to 20 distance threshold is set to 50, this must be less to avoid trying to fit 2 holos
@@ -1784,7 +1787,7 @@ disp('now to shooting...')
 %% now repeat multi-target search with new holograms
 clear peakValue4 peakDepth4 peakFWHM4 dataUZ4
 
-%%
+%% 30 min
 
 background = function_BasGetFrame(Setup,20);
 range = 6;
@@ -2015,7 +2018,7 @@ legend('Excluded','Included')
 title('basVal by trial')
 xlabel('time/holo/acq num')
 ylabel('pixel intensity')
-
+ylim([0,256])
 
 
 
