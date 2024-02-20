@@ -1,6 +1,10 @@
 slmVals = [0:0.01:1; 0:0.01:1];
 slmVals(3,:) = -.03;
 
+calib = 'C:\Users\Holography\Desktop\calibs\ActiveCalib.mat';
+load(calib)
+
+
 % approach 1, long way
 estCam = function_Eval3DCoC(CoC.SLMtoCam, slmVals');
 SIvals = function_Eval3DCoC(CoC.CamToSI, estCam);
