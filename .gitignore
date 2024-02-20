@@ -6,9 +6,16 @@
 # autosaves
 *.asv
 *.m~
+*.fig
 
 # sdk_debug file from Meadowlark DLL
 sdk_debug.txt
 
 # CSV that gets written by the LUT calibration
 Raw*.csv
+
+# ignore DLLs
+*.dll
+
+*.chm
+*.pdf
