@@ -4,8 +4,8 @@ function alignSLMtoCam_ver_1_5()
 
 rt = 'C:\Users\Holography\Desktop\holography\';
 cd(rt)
-addpath(genpath('C:\Users\Holography\Desktop\holography'))
-addpath(genpath('C:\Users\Holography\Desktop\meadowlark'));
+addpath(genpath('..\holography'))
+addpath(genpath('..\meadowlark'));
 f5_idiot_check()
 
 clear
@@ -16,16 +16,16 @@ tBegin = tic;
 
 disp('Setting up stuff...');
 
-Setup = function_loadparameters2();
-Setup.CGHMethod=2;
-Setup.GSoffset=0;
-Setup.verbose =0;
-Setup.useGPU =1;
+Setup = function_loadparameters3();
+Setup.CGHMethod = 2;
+Setup.GSoffset = 0;
+Setup.verbose = 0;
+Setup.useGPU = 1;
 Setup.SLM.is_onek = 1;
 
 if Setup.useGPU
     disp('Getting gpu...'); %this can sometimes take a while at initialization
-    g= gpuDevice;
+    g = gpuDevice;
 end
 
 % delete(gcp('nocreate'));
@@ -88,8 +88,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 20;
-slmCoords = [.4 .4 0.01 1];
+pwr = 5;
+slmCoords = [.07 .92 0 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -162,9 +162,10 @@ tManual = toc(tBegin);
 
 npts = 250;
 
-slmXrange = [0.05 0.98];
-slmYrange = [0.05 0.98];
-slmZrange = [-0.015 0.015];
+slmXrange = [0.06 0.96];
+slmYrange = [0.06 0.94];
+slmZrange = [-0.022 0.02];
+ % 12/29/22 WH - should be roughly +145 um to -30 um 
 
 slmCoordsInitial = generateRandomHolos(slmXrange, slmYrange, slmZrange, npts);
 
@@ -280,10 +281,11 @@ for k =1:numel(zsToUse)
         invar = msrecv(SISocket,0.01);
     end
 
-    figure(1212);
+    f=figure(1212);
+    figure(f,'Name','OptoT Calib Images')
     for hbtmpi=1:numel(SIUZ)
-        subplot(6,6,hbtmpi); colorbar;
-        imagesc(dataUZ(:,:,hbtmpi));
+        subplot(6,6,hbtmpi); 
+        imagesc(dataUZ(:,:,hbtmpi));colorbar;
     end
     pause(.5)
 
@@ -347,7 +349,6 @@ parfor i=1:nGrids
         disp(' ')
     end
 end
-
 fprintf('\ndone\n')
 
 
@@ -360,16 +361,17 @@ SIpeakDepth = b2;
 SIThreshHoldmodifier = 1.5;
 SIThreshHold =SIThreshHoldmodifier*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
 
-excl = SIpeakVal < SIThreshHold;
+%hayley edit 2/6/24 to actually exclude >255, previously was actually
+%overwritten
+excl = SIpeakVal < SIThreshHold | SIpeakVal > 255;
 disp([num2str(numel(SIpeakDepth)) ' points total before exclusions'])
 disp([num2str(sum(excl(:))) ' points excluded b/c below threshold'])
 SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 
-excl = SIpeakVal>255;
 excl = SIpeakDepth<-10 | SIpeakDepth > 130; %upper bound added 7/15/2020 -Ian
 
-disp([num2str(sum(excl(:))) ' points excluded b/c too deep'])
+disp([num2str(sum(excl(:))) ' points excluded b/c too deep or too high'])
 SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
@@ -578,9 +580,10 @@ for i = 1:numel(coarseUZ)
     end
 
     for k=1:npts
-        fprintf([num2str(k) ' ']);
-
-        if mod(k,25)==0
+        if mod(k,5)==0
+            fprintf([num2str(k) ' ']);
+        end
+        if mod(k,50)==0
             fprintf('\n')
         end
 
@@ -600,7 +603,10 @@ for i = 1:numel(coarseUZ)
         dataUZ2(:,:,i,k) =  frame;
 
     end
+    figure(1213); subplot(4,4,i);
+    imagesc(max(squeeze(dataUZ2(:,:,i,:)),[],3));colorbar()
     fprintf(['\nPlane Took ' num2str(toc(t)) ' seconds\n'])
+
 
 end
 
@@ -1006,7 +1012,7 @@ f42.Position = [0.05 0 0.40 0.5];
 hold on
 basx = 1:size(basVal,2);
 plot(basx, basVal,'ro')
-plot(basx(~excludeTrials), basVal(~excludeTrials), 'o')
+plot(basx(~excludeTrials), basVal(~excludeTrials), 'ko')
 legend('Excluded','Included')
 title('basVal by trial')
 xlabel('time/holo/acq num')
@@ -1650,7 +1656,7 @@ basXYZ4 = [baxXYZextra peakDepthValExtra']';
 basVal4 = basValextra;
 FWHMVal4 = FWHMValExtra;%added 7/20/2020 -Ian
 
-excludeTrials = all(basXYZ4(1:2,:)==[1 1]'); %hayley's understanding: if bas x and y are both one, exclude this trial
+excludeTrials = all(basXYZ4(1:2,:)==[1 1]'); %if bas x and y are both one, exclude this trial
 
 % excludeTrials = excludeTrials | basVal4>260; %max of this camera is 255
 
@@ -1663,7 +1669,7 @@ excludeTrials = excludeTrials | basXYZ4(3,:)>150;
 
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
 excludeTrials = excludeTrials | basVal4<1; 
-excludeTrials = excludeTrials | basVal4>6;
+excludeTrials = excludeTrials | basVal4>240;%hayley 2/5/24 switched 6 to 250 bc that doesnt make sense
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -1685,6 +1691,7 @@ hold on
 basx = 1:size(basVal4,2);
 plot(basx, basVal4,'ko')
 plot(basx(~excludeTrials), basVal4(~excludeTrials), 'o')
+ylim([-1,260])
 legend('Excluded','Included')
 title('basVal by trial')
 xlabel('time/holo/acq num')
@@ -2060,9 +2067,9 @@ compileBurnT = toc(tCompileBurn);
 %% do the burning
 
 % params
-si_power = 12; % percent
-burnPowerMultiplier = 8;
-burnTime = 0.5; % in seconds, very rough and not precise
+si_power = 10; % percent
+burnPowerMultiplier = 15;
+burnTime = 0.7; % in seconds, very rough and not precise
 blastPowerCap = 2; % Watts
 
 disp('Blasting Holes for SI to SLM alignment, this will take about an hour and take 25Gb of space')
