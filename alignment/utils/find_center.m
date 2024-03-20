@@ -1,4 +1,4 @@
-function [ x,y ] =function_findcenter( h )
+function [ x,y ] = find_center( h )
 h = imgaussfilt(h, 2);
 [~,y] = max(max(h));
 [~,x] = max(h(:,y));
@@ -11,4 +11,3 @@ h = imgaussfilt(h, 2);
 %x = sum(sum(XX.*double(h)))/mass;
 %y = sum(sum(YY.*double(h)))/mass;
 end
-

@@ -111,11 +111,10 @@ laser.set_power(pwr)
 data = bas.grab(10);
 laser.set_power(0)
 
-data = mean(data,3);
-frame = max(data-bgd, 0);
-[x,y] = function_findcenter(frame);
+frame = mean_img(data, bgd);
+[x,y] = find_center(frame);
 
-frame_crop = data(x-20:x+20, y-20:y+20);
+frame_crop = crop_frame(frame, x, y, 20);
 
 figure(6)
 clf
@@ -666,7 +665,7 @@ laser.flush()
 % Generate multi-target holos based off coarse search data
 targ_time = tic;
 
-[coarseVal, coarseZidx] =max(vals,[],1);
+[coarseVal, coarseZidx] = max(vals,[],1);
 zDepthVal = coarseUZ(coarseZidx);
 zdepths = unique(zDepthVal);
 n_planes = numel(zdepths);
