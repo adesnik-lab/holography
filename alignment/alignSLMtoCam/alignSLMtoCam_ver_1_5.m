@@ -6,7 +6,11 @@ rt = 'C:\Users\Holography\Desktop\holography\';
 cd(rt)
 addpath(genpath('..\holography'))
 addpath(genpath('..\meadowlark'));
+
 f5_idiot_check()
+
+r = struct(); % struct to hold all the data (maybe)
+o = struct(); % struct to hold all the options (maybe)
 
 clear
 close all
@@ -28,18 +32,14 @@ if Setup.useGPU
     g = gpuDevice;
 end
 
-% delete(gcp('nocreate'));
-% parpool('IdleTimeout', 360);
-
 slm = MeadowlarkSLM();
 slm.start()
 
 sutter = sutterController();
-mvShortWait = 0.2;
-mvLongWait = 2;
 
 bas = bascam();
 bas.start()
+% ? is this needed??
 castImg = bas.castFun;
 castAs = bas.castAs;
 
@@ -57,24 +57,21 @@ bas.preview()
 % run this first then code on daq
 % daq code is probably called alignCodeDAQ.m
 
-laser = LaserSocket(42134);
+laser = LaserSocket(laser_socket);
 
 %% connect to ScanImage computer
 
 % run this code first, then 'autoCalibSI' on SI computer
-fprintf('Waiting for msocket communication to ScanImage Computer... ')
-% then wait for a handshake
-srvsock2 = mslisten(42047);
-SISocket = msaccept(srvsock2,15);
-msclose(srvsock2);
-sendVar = 'A';
-mssend(SISocket, sendVar);
+sisock = SIsocket(si_socket);
 
-invar = [];
-while ~strcmp(invar,'B')
-    invar = msrecv(SISocket,.1);
-end
-fprintf('done.\r')
+%% Measure background noise in camera
+bgd_frames = bas.grab(nBackgroundFrames);
+bgd = mean(bgd_frames, 3);
+meanBgdVal = mean(bgd_frames, 'all');
+stdBgdVal = std(single(bgd_frames), [], 'all');
+
+newfig('Camera background')
+imagesc(bgd)
 
 %% set power levels
 
@@ -89,14 +86,13 @@ fprintf('done.\r')
 % scaled for multi-target holograms and hole-burning
 
 pwr = 5;
-slmCoords = [.07 .92 0 1];
+slmTestCoords = [.07 .92 0 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
-DEestimate = DEfromSLMCoords(slmCoords);
+DEestimate = DEfromSLMCoords(slmTestCoords);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
-
-[Holo, Reconstruction, Masksg] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
+[Holo, ~, ~] = function_Make_3D_SHOT_Holos(Setup, slmTestCoords);
 
 slm.feed(Holo)
 laser.set_power(pwr)
@@ -104,29 +100,14 @@ bas.preview()
 laser.set_power(0)
 
 %% check pixel val
-bgd_frames = bas.grab(10);
-bgd = mean(bgd_frames, 3);
-
 laser.set_power(pwr)
 data = bas.grab(10);
 laser.set_power(0)
 
 frame = mean_img(data, bgd);
 [x,y] = find_center(frame);
-
 frame_crop = crop_frame(frame, x, y, 20);
-
-figure(6)
-clf
-imagesc(frame_crop)
-axis square
-colorbar
-% clim([0 255])
-xL=xlim;
-yL=ylim;
-mx = max(frame_crop,[],"all");
-str = ['Peak Intensity: ' num2str(mx) ' A.U.'];
-text(0.03*xL(2),0.03*yL(2),str,'HorizontalAlignment','left','VerticalAlignment','top', 'Color','w')
+figures.checkHoloPower(frame_crop)
 
 %% center FOV
 
@@ -141,37 +122,29 @@ input('Turn off Focus and press any key to continue');
 
 sutter.setRef()
 
-mssend(SISocket,[0 0]);
+sisock.send([0 0])
 
-disp('Make Sure the DAQ computer is running testMultiTargetsDAQ. and the SI computer running autoCalibSI');
-disp('also make those names better someday')
+disp('Make Sure the DAQ computer is running testMultiTargetsDAQ.')
+disp('...and the SI computer running autoCalibSI')
 disp('Make sure both lasers are on and the shutters open')
-disp('Scanimage should be idle, nearly in plane with focus. and with the gain set high enough to see most of the FOV without saturating')
+disp('Scanimage should be idle, nearly in plane with focus.')
+disp('With the gain set high enough to see most of the FOV without saturating')
 
 sutter.moveZ(100)
 
-disp('testing the sutter double check that it moved to reference +100');
-input('Ready to go (Press any key to continue)');
+disp('testing the sutter double check that it moved to reference +100')
+input('Ready to go! (Press any key to continue)')
 
 sutter.moveToRef()
 
-tManual = toc(tBegin);
 
 %% Create initial holos for coarse search
-
-npts = 250;
-
-slmXrange = [0.06 0.96];
-slmYrange = [0.06 0.94];
-slmZrange = [-0.022 0.02];
- % 12/29/22 WH - should be roughly +145 um to -30 um 
-
 slmCoordsInitial = generateRandomHolos(slmXrange, slmYrange, slmZrange, npts);
 
 newfig('Initial Coarse Holograms')
 scatter3(slmCoordsInitial(1,:), ...
-    slmCoordsInitial(2,:), ...
-    slmCoordsInitial(3,:))
+         slmCoordsInitial(2,:), ...
+         slmCoordsInitial(3,:))
 title('Initial Holograms')
 drawnow
 
@@ -179,18 +152,6 @@ fprintf('Compiling initial holograms... ')
 hololist = compileSingleTargetHolos(Setup, slmCoordsInitial);
 fprintf('done.\r')
 
-%% Measure background noise in camera
-
-nBackgroundFrames = 10;
-
-bgd_frames = bas.grab(nBackgroundFrames);
-bgd = mean(bgd_frames, 3);
-
-meanBgd = mean(bgd_frames, 'all');
-stdBgd = std(single(bgd_frames), [], 'all');
-
-newfig('Camera background')
-imagesc(bgd)
 
 
 %% Scan Image Planes Calibration
@@ -358,7 +319,7 @@ SIpeakVal = b1;
 SIpeakDepth = b2;
 
 SIThreshHoldmodifier = 1.5;
-SIThreshHold =SIThreshHoldmodifier*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
+SIThreshHold =SIThreshHoldmodifier*stdBgdVal/sqrt(nBackgroundFrames + framesToAcquire);
 
 %hayley edit 2/6/24 to actually exclude >255, previously was actually
 %overwritten
@@ -671,7 +632,7 @@ zdepths = unique(zDepthVal);
 n_planes = numel(zdepths);
 
 % inclusion threshold added based on frames acquired; more stringent then SI.
-coarseInclusionThreshold = coaseIncludeThreshScalar * stdBgd/sqrt(numFramesCoarseHolo + nBackgroundFrames);
+coarseInclusionThreshold = coaseIncludeThreshScalar * stdBgdVal/sqrt(numFramesCoarseHolo + nBackgroundFrames);
 zDepthVal(coarseVal < coarseInclusionThreshold) = NaN;
 
 xyzLoc = [xyLoc; zDepthVal]; %fix this later (?)
