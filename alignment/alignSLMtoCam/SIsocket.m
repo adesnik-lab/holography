@@ -25,6 +25,14 @@ classdef SIsocket < handle
         function send(obj, msg)
             mssend(obj.sock, msg);
         end
+
+        function set_optotune(obj, z)
+            obj.send([z 1])
+            invar = [];
+            while ~strcmp(invar, 'gotit')
+                invar = msrecv(obj.sock, 0.01);
+            end
+        end
         % does this need flush functionality?
     end
 
