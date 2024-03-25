@@ -1,12 +1,9 @@
-function result = fit_scanimage(optotunePlanes, SIpeakDepth, SIpeakVal)
+function result = fit_cam2opt(optotunePlanes, SIpeakDepth, SIpeakVal, XYSI)
 
 ntest = 50;
 
 %XY spatial calibration model for Power interpolations
-modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
-             1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
-             2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
-             2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ]; 
+modelterms = optotuneModelTerms();
 
 nOpt = numel(optotunePlanes);
 camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);

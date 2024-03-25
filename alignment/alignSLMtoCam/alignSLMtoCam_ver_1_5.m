@@ -2,10 +2,13 @@ function alignSLMtoCam_ver_1_5()
 
 %% Pathing and setup
 
-rt = 'C:\Users\Holography\Desktop\holography\';
+% rt = 'C:\Users\Holography\Desktop\holography\';
+% cd(rt)
+% addpath(genpath('..\holography'))
+% addpath(genpath('..\meadowlark'));
+rt = '/home/will/code/holography';
 cd(rt)
-addpath(genpath('..\holography'))
-addpath(genpath('..\meadowlark'));
+addpath(genpath('./holography'))
 
 f5_idiot_check()
 
@@ -153,29 +156,26 @@ hololist = compileSingleTargetHolos(Setup, slmCoordsInitial);
 fprintf('done.\r')
 
 
-
 %% Scan Image Planes Calibration
-disp('Begining SI Depth calibration, we do this first in case spots burn holes with holograms')
+disp('Begining SI Depth calibration.')
+
 clear SIdepthData
 
-zsToUse = linspace(0,70,15); % ScanImage/Optotune planes
-SIUZ = -15:5:130; % sutter planes
-framesToAcquire = 10; % camera average
-nframesCapture = framesToAcquire;
+nOptotunePlanes = 15;
+optotunePlanes  = round(linspace(0,75,nOptotunePlanes));
+sutterPlanes    = -25:5:150;
+nframesCapture  = 5; % camera average
 
-SIpts = numel(SIUZ);
-
-%generate xy grid
-%this is used bc SI depths are not necessarily parallel to camera depths
-%but SI just generates a sheet of illumination
-%therefore, we want to check a grid of spots that we will get depth info
-%for
 sz = size(bgd);
 gridpts = 25;
 xs = round(linspace(1,sz(1),gridpts+2));
 ys = round(linspace(1,sz(2),gridpts+2));
 xs([1 end])=[];
 ys([1 end])=[];
+
+% % create XY point pairs
+% [X,Y] = meshgrid(xs, ys);
+% XYSI2 = [X(:) Y(:)]';
 
 clear dimx dimy XYSI
 range = 15;
@@ -189,32 +189,27 @@ for i=1:gridpts
     end
 end
 
-disp(['We will collect ' num2str(numel(zsToUse)) ' planes.'])
 
-% for each optotune plane, locate in basler with sutter Z
-
-tSI = tic;
+%% for each optotune plane, locate in basler with sutter Z
 
 SIVals = zeros([SIpts c numel(zsToUse)]);
 
-for k =1:numel(zsToUse)
-    t = tic;
+clear SIdepthImages
+for k=1:numel(optotunePlanes)
+    
+    fprintf('\n')
+    fprintf(['Testing plane ' num2str(z) ': ']);
 
-    z = zsToUse(k);
-
-    disp(['Testing plane ' num2str(z) ': ']);
-
-    mssend(SISocket,[z 1]);
-    invar=[];
-    while ~strcmp(invar,'gotit')
-        invar = msrecv(SISocket,0.01);
-    end
+    z = optotunePlanes(k);
+    sisock.set_optotune(z)
 
     dataUZ = zeros([sz SIpts]);
-    for i = 1:numel(SIUZ)
-        fprintf([num2str(round(SIUZ(i))) ' ']);
 
-        sutter.moveZ(SIUZ(i))
+    % move the sutter through each optotune plane
+    for i = 1:numel(sutterPlanes)
+        fprintf([num2str(round(sutterPlanes(i))) ' ']);
+
+        sutter.moveZ(sutterPlanes(i))
 
         if i==1
             pause(mvLongWait)
@@ -225,284 +220,97 @@ for k =1:numel(zsToUse)
         data = bas.grab(nframesCapture);
 
         % post process capture
-        data = mean(data, 3);
-        frame = max(data-bgd, 0);
-        frame = imgaussfilt(frame, 2);
-
+        mframe = mean_img(data, bgd);
+        frame = imgaussfilt(mframe, 2);
+        
+        % save data, (x,y,plane)
         dataUZ(:,:,i) =  frame;
 
     end
+
+    SIdepthImages{k} = dataUZ;
+
     sutter.moveToRef()
     pause(mvLongWait)
 
-    mssend(SISocket,[z 0]);
-    invar=[];
-    while ~strcmp(invar,'gotit')
-        invar = msrecv(SISocket,0.01);
-    end
+    sisock.set_optotune(0)
 
-    f=figure(1212);
-    figure(f,'Name','OptoT Calib Images')
-    for hbtmpi=1:numel(SIUZ)
-        subplot(6,6,hbtmpi); 
-        imagesc(dataUZ(:,:,hbtmpi));colorbar;
-    end
-    pause(.5)
+    % figures.liveOptotunePlot(dataUZ)
 
-    for i =1:c
-        SIVals(:,i,k) = squeeze(mean(mean(dataUZ(dimx(:,i),dimy(:,i),:))));
-    end
-
-    disp([' Took ' num2str(toc(t)) 's']);
 end
 
-mssend(SISocket,'end');
+sisock.send('end')
 
-disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
-siT=toc(tSI);
-
-%%
-tFits=tic;
-disp('No Longer Putting off the actual analysis until later, Just saving for now')
-out.SIVals =SIVals;
-out.XYSI =XYSI;
-out.zsToUse =zsToUse;
+disp('quick save...')
+out.SIVals = SIVals;
+out.XYSI = XYSI;
+out.zsToUse = zsToUse;
 out.SIUZ = SIUZ;
-
 save('TempSIAlign.mat','out')
 
+disp('Scanimage calibration done.')
+
 %% First Fits
-%Extract data to fit OptotuneZ as a function of camera XYZ
+% Extract data to fit OptotuneZ as a function of camera XYZ
 
 disp('Fitting optotune to Camera... extracting optotune depths')
 
+SIVals = zeros([SIpts c numel(sutterPlanes)]);
 
-out.SIVals =SIVals;
-out.XYSI =XYSI;
-out.zsToUse =zsToUse;
-out.SIUZ = SIUZ;
-nGrids =size(SIVals,2);
-nOpt = size(zsToUse,2);
-fastWay = 01;
-
-clear SIpeakVal SIpeakDepth
-fprintf('Extracting point: ')
-parfor i=1:nGrids
-    for k=1:nOpt
-        if fastWay
-            [a, b] = max(SIVals(:,i,k));
-            SIpeakVal(i,k)=a;
-            SIpeakDepth(i,k) =SIUZ(b);
-        else
-            try
-                ff = fit(SIUZ', SIVals(:,i,k), 'gauss1');
-                SIpeakVal(i,k) =ff.a1;
-                SIpeakDepth(i,k) =ff.b1;
-            catch
-                SIpeakVal(i,k) = nan;
-                SIpeakDepth(i,k) = nan;
-            end
-        end
-    end
-    fprintf([num2str(i) ' '])
-    if mod(i,25)==0
-        disp(' ')
+for k = 1:numel(SIdepthImages)
+    for i =1:c
+        tmp = SIdepthImages{k};
+        SIVals(:,i,k) = squeeze(mean(mean(tmp(dimx(:, i), dimy(:, i), :))));
     end
 end
-fprintf('\ndone\n')
 
+SIgrids = extractScanImageFits(SIVals, optotunePlanes, sutterPlanes);
+SIpeakVal = SIgrids.SIpeakVal;
+SIpeakDepth = SIgrids.SIpeakDepth;
 
-b1 = SIpeakVal;
-b2 = SIpeakDepth;
-%%
-SIpeakVal = b1;
-SIpeakDepth = b2;
+%% Exclusions
 
-SIThreshHoldmodifier = 1.5;
-SIThreshHold =SIThreshHoldmodifier*stdBgdVal/sqrt(nBackgroundFrames + framesToAcquire);
+SIthresholdMod = 1.5;
+SIthreshold = SIthresholdMod*stdBgdVal/sqrt(nBackgroundFrames + nframesCapture);
 
-%hayley edit 2/6/24 to actually exclude >255, previously was actually
-%overwritten
-excl = SIpeakVal < SIThreshHold | SIpeakVal > 255;
+excl = SIpeakVal < SIthreshold | SIpeakVal > 255;
+
 disp([num2str(numel(SIpeakDepth)) ' points total before exclusions'])
 disp([num2str(sum(excl(:))) ' points excluded b/c below threshold'])
+
 SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 
-excl = SIpeakDepth<-10 | SIpeakDepth > 130; %upper bound added 7/15/2020 -Ian
+excl = SIpeakDepth < optotuneMinDepth | SIpeakDepth > optotuneMaxDepth;
 
 disp([num2str(sum(excl(:))) ' points excluded b/c too deep or too high'])
 SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
+
 disp([num2str(sum(~isnan(SIpeakDepth), 'all')) ' points remaining'])
 
 
-%%CamToOpt
-modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
-    1 1 0; 1 0 1; 0 1 1; 1 1 1; 2 0 0; 0 2 0; 0 0 2;...
-    2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
-    2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
+%% camToOptotune
+% run fits and save to CoC
 
-camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
-camXYZ(3,:) =  SIpeakDepth(:);
+SIfits = fit_cam2opt(optotunePlanes, SIpeakDepth, SIpeakVal, XYSI);
 
-camPower = SIpeakVal(:);
+CoC.camToOpto = SIfits.camToOpto;
 
-optZ = repmat(zsToUse,[nGrids 1]);
-optZ = optZ(:);
+figures.optotuneVals(SIfits)
+figures.optotuneFits(SIfits, optotunePlanes)
 
-testSet = randperm(numel(optZ),50);
+%% optotuneToCam
 
-otherSet = ones([numel(optZ) 1]);
-otherSet(testSet)=0;
-otherSet = logical(otherSet);
+SIfits2 = fit_opt2cam(optotunePlanes, SIpeakDepth, nOpt, XYSI);
 
-refAsk = (camXYZ(1:3,otherSet))';
-refGet = optZ(otherSet);
+CoC.OptZToCam= SIfits2.OptZToCam;
 
-camToOpto =  polyfitn(refAsk,refGet,modelterms);
-
-
-Ask = camXYZ(1:3,testSet)';
-True = optZ(testSet);
-
-Get = polyvaln(camToOpto,Ask);
-
-RMS = sqrt(sum((Get-True).^2,2));
-meanRMS = nanmean(RMS);
-
-CoC.camToOpto= camToOpto;
-%%fig
-f201=figure(201);clf
-f201.Units = 'normalized';
-f201.Position = [0 0 0.25 0.45];
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],camPower,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis \mum')
-title('Measured Fluorescence intensity by space')
-c = colorbar;
-c.Label.String = 'Fluorescent Intensity';
-axis square
-
-f2 = figure(2);clf
-f2.Units = 'normalized';
-f2.Position = [0 0.4 0.4 0.4];
-subplot(2,2,1)
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],optZ,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis \mum')
-title('Measured Optotune Level (A.U.)')
-c = colorbar;
-c.Label.String = 'Optotune Depth';
-axis square
-
-subplot(2,2,2)
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],polyvaln(camToOpto,camXYZ(1:3,:)'),'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis \mum')
-title('Estimated Optotune Level (A.U.)')
-c = colorbar;
-c.Label.String = 'Optotune Depth';
-axis square
-
-subplot(2,2,3)
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],polyvaln(camToOpto,camXYZ(1:3,:)')-optZ,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis \mum')
-title('Error (A.U.)')
-c = colorbar;
-c.Label.String = 'Optotune Depth';
-axis square
-
-subplot(2,2,4)
-c = sqrt((polyvaln(camToOpto,camXYZ(1:3,:)')-optZ).^2);
-scatter3(camXYZ(1,:),camXYZ(2,:),camXYZ(3,:),[],c,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis \mum')
-title('Error RMS (A.U.)')
-c = colorbar;
-c.Label.String = 'Optotune Depth';
-axis square
-
-%%optZtoCam
-cam2XYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
-cam2XYZ(3,:) =  optZ(:);
-obsZ =  SIpeakDepth(:);
-
-testSet = randperm(numel(obsZ),50);
-otherSet = ones([numel(obsZ) 1]);
-otherSet(testSet)=0;
-otherSet = logical(otherSet);
-
-refAsk = (cam2XYZ(1:3,otherSet))';
-refGet = obsZ(otherSet);
-
-OptZToCam =  polyfitn(refAsk,refGet,modelterms);
-
-
-Ask = cam2XYZ(1:3,testSet)';
-True = obsZ(testSet);
-
-Get = polyvaln(OptZToCam,Ask);
-
-RMS = sqrt(sum((Get-True).^2,2));
-meanRMS = nanmean(RMS);
-disp(['The mean error in Optotune depth prediction is : ' num2str(meanRMS) 'um']);
-disp(['The Max error is: ' num2str(max(RMS)) 'um'])
-
-CoC.OptZToCam= OptZToCam;
 
 out.CoC=CoC;
-out.SIfitModelTerms = modelterms;
-%%fig
-f3 = figure(3);clf
-f3.Units = 'normalized';
-f3.Position = [0.4 0.4 0.4 0.4];
-subplot(2,2,1)
-scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],obsZ,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis Optotune Units')
-title('Measured Optotune Level (A.U.)')
-c = colorbar;
-c.Label.String = 'Depth \mum';
-axis square
+out.SIfitModelTerms = optotuneModelTerms();
 
-subplot(2,2,2)
-scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],polyvaln(OptZToCam,cam2XYZ(1:3,:)'),'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis Optotune Units')
-title('Estimated Optotune Level (A.U.)')
-c = colorbar;
-c.Label.String = 'Depth \mum';
-axis square
-
-subplot(2,2,3)
-scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],polyvaln(OptZToCam,cam2XYZ(1:3,:)')-obsZ,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis Optotune Units')
-title('Error (A.U.)')
-c = colorbar;
-c.Label.String = 'Depth \mum';
-axis square
-
-subplot(2,2,4)
-c = sqrt((polyvaln(OptZToCam,cam2XYZ(1:3,:)')-obsZ).^2);
-scatter3(cam2XYZ(1,:),cam2XYZ(2,:),cam2XYZ(3,:),[],c,'filled');
-ylabel('Y Axis pixels')
-xlabel('X axis pixels')
-zlabel('Z axis Optotune Units')
-title('Error RMS (A.U.)')
-c = colorbar;
-c.Label.String = 'Depth \mum';
-axis square
+figures.plotCameraModel(SIfits2);
 
 
 %% Coarse Data

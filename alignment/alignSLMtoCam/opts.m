@@ -19,3 +19,12 @@ slmZrange = [-0.022 0.02];
 
 % initial number of SLM single target points
 npts = 250;
+
+% ScanImage planes calibration
+nOptotunePlanes = 15;
+sutterPlanes    = -25:5:150;
+nframesCapture  = 5; % camera average
+gridpts = 25;
+SIthresholdMod = 1.5; % for exclusions
+optotuneMinDepth = -10; % for exclusions
+optotuneMaxDepth = 130; % for exclusions
