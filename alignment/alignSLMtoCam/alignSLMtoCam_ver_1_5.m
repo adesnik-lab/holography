@@ -57,14 +57,14 @@ bas.preview()
 % run this first then code on daq
 % daq code is probably called alignCodeDAQ.m
 
-laser = LaserSocket(42134);
+laser = LaserSocket(42136);
 
 %% connect to ScanImage computer
 
 % run this code first, then 'autoCalibSI' on SI computer
 fprintf('Waiting for msocket communication to ScanImage Computer... ')
 % then wait for a handshake
-srvsock2 = mslisten(42047);
+srvsock2 = mslisten(42049);
 SISocket = msaccept(srvsock2,15);
 msclose(srvsock2);
 sendVar = 'A';
@@ -88,15 +88,15 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 5;
-slmCoords = [.07 .92 0 1];
+pwr = 12;
+slmCoords = [.55 .55 0 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
 DEestimate = DEfromSLMCoords(slmCoords);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
-[Holo, Reconstruction, Masksg] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
+[Holo, ~, ~] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
 
 slm.feed(Holo)
 laser.set_power(pwr)
@@ -162,10 +162,13 @@ tManual = toc(tBegin);
 
 npts = 250;
 
+% generally should set Z range from -30ish (below) ScanImage zero to
+% +140ish (above) ScanImage zero plane (or whatever range you want to
+% calibrate
+
 slmXrange = [0.06 0.96];
 slmYrange = [0.06 0.94];
 slmZrange = [-0.022 0.02];
- % 12/29/22 WH - should be roughly +145 um to -30 um 
 
 slmCoordsInitial = generateRandomHolos(slmXrange, slmYrange, slmZrange, npts);
 
@@ -198,10 +201,12 @@ imagesc(bgd)
 disp('Begining SI Depth calibration, we do this first in case spots burn holes with holograms')
 clear SIdepthData
 
-zsToUse = linspace(0,70,15); % ScanImage/Optotune planes
+zsToUse = 0:6:60; % ScanImage/Optotune planes
 SIUZ = -15:5:130; % sutter planes
 framesToAcquire = 10; % camera average
 nframesCapture = framesToAcquire;
+
+draw_opto_live = 0; % plot live optotune images
 
 SIpts = numel(SIUZ);
 
@@ -280,14 +285,16 @@ for k =1:numel(zsToUse)
     while ~strcmp(invar,'gotit')
         invar = msrecv(SISocket,0.01);
     end
-
-    f=figure(1212);
-    figure(f,'Name','OptoT Calib Images')
-    for hbtmpi=1:numel(SIUZ)
-        subplot(6,6,hbtmpi); 
-        imagesc(dataUZ(:,:,hbtmpi));colorbar;
+    
+    if draw_opto_live
+        newfig('OptoT Calib Images')
+        for hbtmpi=1:numel(SIUZ)
+            subplot(6,6,hbtmpi); 
+            imagesc(dataUZ(:,:,hbtmpi));
+            colorbar;
+        end
+        pause(.5)
     end
-    pause(.5)
 
     for i =1:c
         SIVals(:,i,k) = squeeze(mean(mean(dataUZ(dimx(:,i),dimy(:,i),:))));
@@ -323,7 +330,7 @@ out.zsToUse =zsToUse;
 out.SIUZ = SIUZ;
 nGrids =size(SIVals,2);
 nOpt = size(zsToUse,2);
-fastWay = 01;
+fastWay = 1;
 
 clear SIpeakVal SIpeakDepth
 fprintf('Extracting point: ')
@@ -358,7 +365,7 @@ b2 = SIpeakDepth;
 SIpeakVal = b1;
 SIpeakDepth = b2;
 
-SIThreshHoldmodifier = 1.5;
+SIThreshHoldmodifier = 1;
 SIThreshHold =SIThreshHoldmodifier*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
 
 %hayley edit 2/6/24 to actually exclude >255, previously was actually
@@ -568,7 +575,7 @@ dataUZ2 = zeros([newSize  numel(coarseUZ) npts], castAs);
 maxProjections = castImg(zeros([newSize  npts]));
 
 for i = 1:numel(coarseUZ)
-    fprintf(['First Pass Holo, Depth: ' num2str(coarseUZ(i)) '. Holo : '])
+    fprintf(['First Pass Holo, Depth: ' num2str(coarseUZ(i)) '. Holo : \n'])
     t = tic;
 
     sutter.moveZ(coarseUZ(i))
@@ -603,7 +610,8 @@ for i = 1:numel(coarseUZ)
         dataUZ2(:,:,i,k) =  frame;
 
     end
-    figure(1213); subplot(4,4,i);
+    newfig('Coarse Search Live Images')
+    subplot(4,4,i);
     imagesc(max(squeeze(dataUZ2(:,:,i,:)),[],3));colorbar()
     fprintf(['\nPlane Took ' num2str(toc(t)) ' seconds\n'])
 
@@ -1562,7 +1570,7 @@ for i = 1:planes
 
         end
     end
-    fprintf('n')
+    fprintf('\n')
 
     for j= 1:holos_this_plane
         fineUZ4{i}{j} = fineUZ;
@@ -1669,7 +1677,7 @@ excludeTrials = excludeTrials | basXYZ4(3,:)>150;
 
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
 excludeTrials = excludeTrials | basVal4<1; 
-excludeTrials = excludeTrials | basVal4>240;%hayley 2/5/24 switched 6 to 250 bc that doesnt make sense
+excludeTrials = excludeTrials | basVal4>250;%hayley 2/5/24 switched 6 to 250 bc that doesnt make sense
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -1702,7 +1710,7 @@ ylabel('pixel intensity')
 
 errScalar = 2.5;
 holdback = 500;
-pxPerMu = 1;
+pxPerMu = 1.2;
 
 
 basXYZ4 = basXYZBackup;
@@ -2068,8 +2076,8 @@ compileBurnT = toc(tCompileBurn);
 
 % params
 si_power = 10; % percent
-burnPowerMultiplier = 15;
-burnTime = 0.7; % in seconds, very rough and not precise
+burnPowerMultiplier = 5;
+burnTime = 0.5; % in seconds, very rough and not precise
 blastPowerCap = 2; % Watts
 
 disp('Blasting Holes for SI to SLM alignment, this will take about an hour and take 25Gb of space')
@@ -2171,6 +2179,7 @@ for k=1:numel(zsToBlast)
         % blastPower is in mW and and blastPowerCap is in W, so be sure to
         % convert
         if blastPower > blastPowerCap*1000
+            disp('WARN: hit blastPowerCap! adjusting...')
             blastPower = blastPowerCap*1000;
         end
 

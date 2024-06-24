@@ -40,7 +40,7 @@ Setup.SLM.State = 0;
 
 %%--- CGH Computation Parameters ---%%
 Setup.CGHMethod = 2;         % Select 1 for superoposition, 2 for GGS, 3 for novocgh, 4 for 2P NovoCGH
-Setup.verbose = 1;           % 1 or 0    Set this value to 1 to display activity, 0 otherwise
+Setup.verbose = 0;           % 1 or 0    Set this value to 1 to display activity, 0 otherwise
 Setup.lambda = 1.03e-6;      % meters    Wavelength of the light
 Setup.focal_SLM = 0.15;      % meters    focal length of the telescope lens after slm.
 Setup.Nx = Setup.SLM.Nx;     % int       Number of pixels in X direction

@@ -1,6 +1,6 @@
 %% Pathing and setup
 
-makePaths()
+makePaths2()
 
 clear
 close all
@@ -11,11 +11,6 @@ tBegin = tic;
 disp('Setting up stuff...');
 
 Setup = function_loadparameters3();
-Setup.CGHMethod=2;
-Setup.GSoffset=0;
-Setup.verbose =0;
-Setup.useGPU =1;
-Setup.SLM.is_onek = 1;
 
 if Setup.useGPU
     disp('Getting gpu...'); %this can sometimes take a while at initialization
@@ -50,7 +45,7 @@ bas.preview()
 %run this first then code on daq
 disp('Waiting for msocket communication From DAQ... ')
 %then wait for a handshake
-srvsock = mslisten(42134);
+srvsock = mslisten(42136);
 masterSocket = msaccept(srvsock,15);
 msclose(srvsock);
 sendVar = 'A';
@@ -69,7 +64,7 @@ slm.blank()
 
 %% shoot single holo, no power control
 
-slmCoordsTemp = [0.55 0.55 -0.12 1];
+slmCoordsTemp = [0.6 0.6 -0.01 1];
 
 [ HoloTemp,~,~ ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 DEestimateTemp = DEfromSLMCoords(slmCoordsTemp);
@@ -106,7 +101,7 @@ title('Hologram sent to SLM')
 % input power in mW
 pwr = 10;
 
-slmCoordsTemp = [0.06 0.96 0.006 1];
+slmCoordsTemp = [0.55 0.55 0.015 1];
 % slmCoordsTemp = [[0.13 .15 0.02 1];...
 %                  [0.05 .80 0.02 1];...
 %                  [1.0 .4 0.02 1];...
