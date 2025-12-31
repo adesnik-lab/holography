@@ -4,7 +4,7 @@ function GS = function_globalGS(System, HStacks, Masks)
 
 if System.verbose == 1
     disp('Global Gerchberg-Saxton hologram computation begins...');
-    tic;
+    tic;                                               
 end
 
 ims = Masks;

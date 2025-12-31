@@ -1,6 +1,6 @@
 %% Pathing and setup
 
-makePaths2()
+makePaths()
 
 clear
 close all
@@ -64,7 +64,7 @@ slm.blank()
 
 %% shoot single holo, no power control
 
-slmCoordsTemp = [0.6 0.6 -0.01 1];
+slmCoordsTemp = [0.55 0.55 0 1];
 
 [ HoloTemp,~,~ ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 DEestimateTemp = DEfromSLMCoords(slmCoordsTemp);
@@ -80,33 +80,32 @@ title('Hologram sent to SLM')
 
 %% shoot multi holo, no power control
 
-slmCoordsTemp = [[0.30 .40 0.1 1];...
-                 [0.45 .66 0 1];...
-                 [0.78 .77 0 1];...
+slmCoordsTemp = [[0.30 .40 .10 1];...
+                 [0.45 .66 .2 1];...
+                 [0.78 .77 -.03 1];...
                  [0.60 .40 0 1]];
 
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 % Function_Feed_SLM(Setup.SLM, HoloTemp);
 disp('sent SLM')
 
-figure(124)
+figure(121)
 clf
 imagesc(HoloTemp)
 title('Hologram sent to SLM')
-
 
 %% shoot hologram with power control
 % must be connected to daq computer
 
 % input power in mW
-pwr = 10;
+pwr = 250;
 
-slmCoordsTemp = [0.55 0.55 0.015 1];
-% slmCoordsTemp = [[0.13 .15 0.02 1];...
-%                  [0.05 .80 0.02 1];...
-%                  [1.0 .4 0.02 1];...
-%                  [0.9 .9 0.02 1]];%...
-                 %[0.60 .60 0.02 1]];
+% slmCoordsTemp = [0.55 0.55 0.015 1];
+slmCoordsTemp = [[0.13 .15 0.02 1];...
+                 [0.05 .80 0.02 1];...
+                 [1.0 .4 0.02 1];...
+                 [0.9 .9 0.02 1];...
+                 [0.60 .60 0.02 1]];
 
 % slmCoordsTemp = [[0.20 .17 0.02 1];... % top right
 %                  [0.20 .80 0.02 1];... % bottom right
@@ -117,8 +116,8 @@ slmCoordsTemp = [0.55 0.55 0.015 1];
 [ HoloTemp,Reconstruction,Masksg ] = function_Make_3D_SHOT_Holos(Setup, slmCoordsTemp);
 slm.feed(HoloTemp)
 disp('sent SLM')
-% figure(124)
-% imagesc(HoloTemp)
+figure(124)
+imagesc(HoloTemp)
 
 mssend(masterSocket, [pwr/1000 1 1]);
 bas.preview()

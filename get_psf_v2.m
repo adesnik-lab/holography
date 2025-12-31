@@ -39,7 +39,7 @@ bas.preview()
 
 %run this first then code on daq
 
-laser = LaserSocket(42134);
+laser = LaserSocket(42136);
 
 
 %% set power levels
@@ -54,9 +54,8 @@ laser = LaserSocket(42134);
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 13;
-slmCoords = [.6 .4 0 1];
-
+pwr = 39;
+slmCoords = [.55 .55 -0.008 1]; % x y z power attenuation coefficient. positions of holograms.
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -64,7 +63,7 @@ DEestimate = DEfromSLMCoords(slmCoords);
 disp(['Diffraction Estimate for this spot is: ' num2str(DEestimate)])
 
 [Holo, Reconstruction, Masksg] = function_Make_3D_SHOT_Holos(Setup, slmCoords);
-slm.feed(Holo)
+slm.feed(Holo) 
 laser.set_power(pwr)
 bas.preview()
 laser.set_power(0)
@@ -95,7 +94,7 @@ mx = max(frame_crop,[],"all");
 str = ['Peak Intensity: ' num2str(mx) ' A.U.'];
 text(0.03*xL(2),0.03*yL(2),str,'HorizontalAlignment','left','VerticalAlignment','top', 'Color','w')
 
-%% Measure background noise in camera
+%%Measure background noise in camera
 
 
 bgd_frames = bas.grab(10);
@@ -112,7 +111,7 @@ figure(1); clf
 sutter.setRef()
 
 sz = size(bgd);
-UZ = linspace(-50,50,31);
+UZ = linspace(-50,50,21);
 
 dataUZ = zeros([sz numel(UZ)]);
 
@@ -241,7 +240,7 @@ peakFWHM = 2*sqrt(2*log(2))*ff.c1/sqrt(2);
 
 mimg = mean(dataUZ,3);
 
-% caclulations
+%%caclulations
 figure(3);clf
 subplot(2,2,1)
 plot(UZ,thisStack)

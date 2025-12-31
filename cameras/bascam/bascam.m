@@ -32,6 +32,7 @@ classdef bascam < handle
             end
             fprintf('Initializing Basler... ')
             obj.vid = videoinput(obj.driver, 1, obj.camera_model);
+            %obj.vid = videoinput('winvideo', 1);
             obj.vid.ReturnedColorspace = 'grayscale';
             obj.vid.FramesPerTrigger = 1;
             obj.vid.TriggerRepeat = Inf;

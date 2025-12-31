@@ -36,7 +36,7 @@ slm.start()
 
 sutter = sutterController();
 mvShortWait = 0.2;
-mvLongWait = 2;
+mvLongWait = 1;
 
 bas = bascam();
 bas.start()
@@ -49,6 +49,20 @@ rng shuffle
 disp('Ready! Good luck...')
 
 %% look for objective in 1p
+% -- first using the 1p illumination, get the rough XYZ light into the
+% basler FOV.
+% -- then align scanimage to the slide/focus of the basler-- do this by
+% getting the slide into focus in scanimge (use lower power, like 12% and
+% be sure PMTs are set to 0.260 - 0.280 (ish) (note that going lower than
+% 0.250 risks the PMT flickering). then set the scan lines pixels/line to
+% 32 and carefully move the objective so the lines are crisp and mostly 
+% evenly illuminted across the scan. align the scanimage FOV into the
+% center of the basler FOV.
+% -- after you do this, set your px/line 
+% back to 512 again in scanimage, then increase the power up to a level 
+% where you can actually see the 512x512 scan in the baslier preview, you
+% should be able to see it, but do not make it too bright or you will
+% bleach the slide, recently I've been using 18% (50 mW)
 
 bas.preview()
 
@@ -64,11 +78,12 @@ laser = LaserSocket(42136);
 % run this code first, then 'autoCalibSI' on SI computer
 fprintf('Waiting for msocket communication to ScanImage Computer... ')
 % then wait for a handshake
-srvsock2 = mslisten(42049);
+srvsock2 = mslisten(42050);
 SISocket = msaccept(srvsock2,15);
 msclose(srvsock2);
 sendVar = 'A';
 mssend(SISocket, sendVar);
+
 
 invar = [];
 while ~strcmp(invar,'B')
@@ -88,8 +103,8 @@ fprintf('done.\r')
 % this power will be used throughout the calibration and is appropriately
 % scaled for multi-target holograms and hole-burning
 
-pwr = 12;
-slmCoords = [.55 .55 0 1];
+pwr = 20;
+slmCoords = [.54 .53 -0.014 1];
 
 disp(['Individual hologram power set to ' num2str(pwr) 'mW.'])
 
@@ -141,7 +156,7 @@ input('Turn off Focus and press any key to continue');
 
 sutter.setRef()
 
-mssend(SISocket,[0 0]);
+mssend(SISocket,[0 0]); % this is potentially causing scanimage to freak out, but it always used to be here
 
 disp('Make Sure the DAQ computer is running testMultiTargetsDAQ. and the SI computer running autoCalibSI');
 disp('also make those names better someday')
@@ -157,17 +172,21 @@ sutter.moveToRef()
 
 tManual = toc(tBegin);
 
-%% Create initial holos for coarse search
+%% Set some other paramaters now
+% so we don't have to look for them buried in the code
 
+% number of points for coarse holo search
 npts = 250;
 
 % generally should set Z range from -30ish (below) ScanImage zero to
 % +140ish (above) ScanImage zero plane (or whatever range you want to
 % calibrate
+slmXrange = [0.03 0.97];
+slmYrange = [0.03 0.97];
+slmZrange = [-0.03 0.002];
 
-slmXrange = [0.06 0.96];
-slmYrange = [0.06 0.94];
-slmZrange = [-0.022 0.02];
+%% Create initial holos for coarse search
+% FROM HERE EVERYTHING CAN BE AUTOMATED USUALLY
 
 slmCoordsInitial = generateRandomHolos(slmXrange, slmYrange, slmZrange, npts);
 
@@ -197,32 +216,36 @@ imagesc(bgd)
 
 
 %% Scan Image Planes Calibration
+
+
 disp('Begining SI Depth calibration, we do this first in case spots burn holes with holograms')
 clear SIdepthData
 
-zsToUse = 0:6:60; % ScanImage/Optotune planes
-SIUZ = -15:5:130; % sutter planes
-framesToAcquire = 10; % camera average
-nframesCapture = framesToAcquire;
-
-draw_opto_live = 0; % plot live optotune images
+zsToUse = 0:6:72; % ScanImage/Optotune planes
+SIUZ = -20:5:130; % Sutter z planes
+gridpts = 50; % how many points in the grid to measure fluoresence, this may need to be scaled up for cams with more pixels
+% default is 50, I'm trying 30 today (10-16-25, WH), this might interact
+% with range below those (range was set to 15 when gridpts was 25)
+range = 15; % this is the size of the square to average SI illumination at each grid point
+framesToAcquire = 20; % camera average
+imFilterSigma = 5; % how many std to smooth the image capture (also scales kernel size)
+nframesCapture = framesToAcquire; % needed for old code references
+draw_opto_live = 1; % plot live optotune images
 
 SIpts = numel(SIUZ);
 
-%generate xy grid
-%this is used bc SI depths are not necessarily parallel to camera depths
-%but SI just generates a sheet of illumination
-%therefore, we want to check a grid of spots that we will get depth info
-%for
+% generate xy grid
+% this is used bc SI depths are not necessarily parallel to camera depths
+% but SI just generates a sheet of illumination, we want to check a grid 
+% of spots that we will get depth info for
+
 sz = size(bgd);
-gridpts = 25;
 xs = round(linspace(1,sz(1),gridpts+2));
 ys = round(linspace(1,sz(2),gridpts+2));
 xs([1 end])=[];
 ys([1 end])=[];
 
 clear dimx dimy XYSI
-range = 15;
 c=0;
 for i=1:gridpts
     for k=1:gridpts
@@ -271,19 +294,20 @@ for k =1:numel(zsToUse)
         % post process capture
         data = mean(data, 3);
         frame = max(data-bgd, 0);
-        frame = imgaussfilt(frame, 2);
+        frame = imgaussfilt(frame, imFilterSigma);
 
         dataUZ(:,:,i) =  frame;
 
     end
-    sutter.moveToRef()
-    pause(mvLongWait)
-
+    
     mssend(SISocket,[z 0]);
     invar=[];
     while ~strcmp(invar,'gotit')
         invar = msrecv(SISocket,0.01);
     end
+
+    sutter.moveToRef()
+    pause(mvLongWait)
     
     if draw_opto_live
         newfig('OptoT Calib Images')
@@ -305,20 +329,19 @@ end
 mssend(SISocket,'end');
 
 disp(['Scanimage calibration done whole thing took ' num2str(toc(tSI)) 's']);
-siT=toc(tSI);
+siT = toc(tSI);
 
-%%
-tFits=tic;
+% save the output data
+tFits = tic;
 disp('No Longer Putting off the actual analysis until later, Just saving for now')
 out.SIVals =SIVals;
 out.XYSI =XYSI;
-out.zsToUse =zsToUse;
+out.zsToUse = zsToUse;
 out.SIUZ = SIUZ;
 
 save('TempSIAlign.mat','out')
 
-%% First Fits
-%Extract data to fit OptotuneZ as a function of camera XYZ
+%% Extract the ScanImage/Optotune data
 
 disp('Fitting optotune to Camera... extracting optotune depths')
 
@@ -329,7 +352,7 @@ out.zsToUse =zsToUse;
 out.SIUZ = SIUZ;
 nGrids =size(SIVals,2);
 nOpt = size(zsToUse,2);
-fastWay = 1;
+fastWay = 1; % fast way is max, the slow way is a gaussian fit
 
 clear SIpeakVal SIpeakDepth
 fprintf('Extracting point: ')
@@ -357,15 +380,16 @@ parfor i=1:nGrids
 end
 fprintf('\ndone\n')
 
-
 b1 = SIpeakVal;
 b2 = SIpeakDepth;
-%%
+
+%% Fit Scanimage/OptotuneZ as a function of basler camera XYZ 
+
 SIpeakVal = b1;
 SIpeakDepth = b2;
 
-SIThreshHoldmodifier = 1;
-SIThreshHold =SIThreshHoldmodifier*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
+SIThreshHoldmodifier = 0.95; % default is 1.5
+SIThreshHold = SIThreshHoldmodifier*stdBgd/sqrt(nBackgroundFrames + framesToAcquire);
 
 %hayley edit 2/6/24 to actually exclude >255, previously was actually
 %overwritten
@@ -375,7 +399,7 @@ disp([num2str(sum(excl(:))) ' points excluded b/c below threshold'])
 SIpeakVal(excl)=nan;
 SIpeakDepth(excl)=nan;
 
-excl = SIpeakDepth<-10 | SIpeakDepth > 130; %upper bound added 7/15/2020 -Ian
+excl = SIpeakDepth<-25 | SIpeakDepth > 130; %upper bound added 7/15/2020 -Ian
 
 disp([num2str(sum(excl(:))) ' points excluded b/c too deep or too high'])
 SIpeakVal(excl)=nan;
@@ -389,6 +413,7 @@ modelterms =[0 0 0; 1 0 0; 0 1 0; 0 0 1;...
     2 0 1; 2 1 0; 0 2 1; 0 1 2; 1 2 0; 1 0 2;...
     2 2 0; 2 0 2; 0 2 2; 2 1 1; 1 2 1; 1 1 2; ];  %XY spatial calibration model for Power interpolations
 
+clear camXYZ
 camXYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
 camXYZ(3,:) =  SIpeakDepth(:);
 
@@ -476,6 +501,7 @@ c.Label.String = 'Optotune Depth';
 axis square
 
 %%optZtoCam
+clear cam2XYZ
 cam2XYZ(1:2,:) =  repmat(XYSI,[1 nOpt]);
 cam2XYZ(3,:) =  optZ(:);
 obsZ =  SIpeakDepth(:);
@@ -551,7 +577,7 @@ c.Label.String = 'Depth \mum';
 axis square
 
 
-%% Coarse Data
+%% Coarse Holo Search
 tstart=tic;
 
 disp('Begining Coarse Holo spot finding')
@@ -559,6 +585,9 @@ disp('Begining Coarse Holo spot finding')
 numFramesCoarseHolo = 5; % number frames to collect
 coarsePts = 9; % odd number please
 coarseUZ = linspace(-25,150,coarsePts);
+holoImgFilt = 3; % default is 2, smooths the captured frame
+sizeFactor = 1; % you could downsample to save data, this may not work with new multi-step code?
+display_holos = 1;
 
 laser.set_power(0)
 laser.flush()
@@ -567,7 +596,7 @@ vals = nan(coarsePts,npts);
 xyLoc = nan(2,npts);
 
 sz = size(bgd);
-sizeFactor = 1;
+
 newSize = sz / sizeFactor;
 
 dataUZ2 = zeros([newSize  numel(coarseUZ) npts], castAs);
@@ -604,14 +633,16 @@ for i = 1:numel(coarseUZ)
         % post process
         frame = mean(frame, 3);
         frame = max(frame-bgd, 0);
-        frame = imgaussfilt(frame, 2);
+        frame = imgaussfilt(frame, holoImgFilt); % was 2
         frame = imresize(frame, newSize);
         dataUZ2(:,:,i,k) =  frame;
 
     end
-    newfig('Coarse Search Live Images')
-    subplot(4,4,i);
-    imagesc(max(squeeze(dataUZ2(:,:,i,:)),[],3));colorbar()
+    if display_holos
+        newfig('Coarse Search Live Images')
+        subplot(4,4,i);
+        imagesc(max(squeeze(dataUZ2(:,:,i,:)),[],3));colorbar()
+    end
     fprintf(['\nPlane Took ' num2str(toc(t)) ' seconds\n'])
 
 
@@ -622,7 +653,7 @@ dataUZ2 = uint8(dataUZ2);
 
 sutter.moveToRef()
 
-%%
+%% Calculate Depth and Vals
 disp('Calculating Depths and Vals')
 
 range = ceil(5/sizeFactor);
@@ -648,7 +679,7 @@ end
 
 fprintf(['All Done. Total Took ' num2str(toc(tstart)) 's\n']);
 
-%% Second pass, multi-target version
+%% Fine search, multi-target version
 % this section takes the holograms X,Y,Z coarse locations from the first
 % step and then performs a fine search for them based off of thier
 % approximate z plane, only done on the initialized points
@@ -657,7 +688,7 @@ fprintf(['All Done. Total Took ' num2str(toc(tstart)) 's\n']);
 finePts = 13; % odd number please
 fineRange = 40;
 coaseIncludeThreshScalar = 3;
-nframesCapture = 10;
+nframesCapture = 5;
 
 % holo generation params
 iterationsBeforeStop = 1000;
@@ -744,7 +775,7 @@ for i=1:n_planes
         end
     end
 end
-
+disp('Holos constructed.')
 %% make the holos
 disp('Setting up compute for multi-targets...');
 Setup.CGHMethod = 2;
@@ -786,10 +817,10 @@ disp(['Overall took ' num2str(toc(targ_time)) 's to compile multi target holos']
 out.hololist = hololist;
 out.slmCoords = slmCoordsInitial;
 
-%%
+%%z
 clear peakValue peakDepth peakFWHM
 
-box_range = 20; % 7/15/20 changed from 50 to 20 distance threshold is set to 50, this must be less to avoid trying to fit 2 holos
+box_range = 10; % manually set, but range is roughly distanceThreshold/3 (you don't want 2 holos appearing in the same box)
 disp('shootin!')
 
 % for every  plane
@@ -809,6 +840,7 @@ for i = 1:planes
         end
 
         multi_pwr = size(slmMultiCoordsIndiv{i}{j},2) * pwr;
+        disp(['Power requested: ' num2str(multi_pwr) ' mW'])
 
         target_ref = targListIndiv{i}{j}(1);
         expected_z = xyzLoc(3, target_ref);
@@ -840,7 +872,7 @@ for i = 1:planes
             % subtract the background and filter
             frame = mean(data, 3);
             frame = max(frame-bgd, 0);
-            frame = imgaussfilt(frame, 2);
+            frame = imgaussfilt(frame, 3);
 
             % store into dataUZ(x,y,z-plane)
             dataUZ(:,:,k) =  frame;
@@ -966,11 +998,7 @@ basXYZ = basXYZBackup2;
 basVal = basValBackup2;
 FWHMVal = FWHMBackup2;
 
-newfig('Bas Data')
-subplot(1,2,1)
-scatter3(basXYZ(1,:), basXYZ(2,:), basXYZ(3,:))
-subplot(1,2,2)
-histogram(basVal)
+
 
 
 excludeTrials = all(basXYZ(1:2,:)==[1 1]'); %hayley's understanding: if bas x and y are both one, exclude this trial
@@ -980,14 +1008,29 @@ excludeTrials = excludeTrials | basVal > bas.camMax;
 basDimensions = size(bgd);
 excludeTrials = excludeTrials | basXYZ(1,:)>=basDimensions(1)-1;
 excludeTrials = excludeTrials | basXYZ(2,:)>=basDimensions(2)-1;
-excludeTrials = excludeTrials | basXYZ(3,:)<-5;
-excludeTrials = excludeTrials | basXYZ(3,:)>200;
+excludeTrials = excludeTrials | basXYZ(3,:)<-20;
+excludeTrials = excludeTrials | basXYZ(3,:)>150;
+%% 
 
 
 excludeTrials = excludeTrials | any(isnan(basXYZ(:,:)));
-excludeTrials = excludeTrials | basVal < 1;
-excludeTrials = excludeTrials | basVal > 250;
+excludeTrials = excludeTrials | basVal < 5;
+excludeTrials = excludeTrials | basVal > 100;
 % excludeTrials = excludeTrials | basVal>(mean(basVal)+3*std(basVal));
+
+newfig('Bas Data')
+subplot(2,2,1)
+scatter3(basXYZ(1,:), basXYZ(2,:), basXYZ(3,:))
+title('Raw Data')
+subplot(2,2,2)
+histogram(basVal)
+title('Raw Data')
+subplot(2,2,3)
+scatter3(basXYZ(1,~excludeTrials), basXYZ(2,~excludeTrials), basXYZ(3,~excludeTrials))
+title('Cleaned Data')
+subplot(2,2,4)
+histogram(basVal(:,~excludeTrials))
+title('Cleaned Data')
 
 slmXYZBackup = slmXYZ(:,~excludeTrials);
 basXYZBackup = basXYZ(:,~excludeTrials);
@@ -1029,8 +1072,8 @@ ylabel('pixel intensity')
 % use model terms
 
 % params
-holdback = 30;
-errScalar = 2.5; % should be between 2 and 3
+holdback = 50;
+errScalar = 2; % should be between 2 and 3
 % pxPerMu = 0.57723; % i think this is actually muPerPx, functionally
 pxPerMu = 1;
 
@@ -1277,14 +1320,14 @@ out.powerFitmodelTerms = modelterms;
 % params
 SImatchThreshold = 0; % threshold for being in SI FOV (set to 0 to take whole range)
 fineBufferMargin = 0.1;
-burnBufferMargin = 0.05;
+burnBufferMargin = 0.01;
 nBurnGrid = 8; %number of points in the burn grid
 FractionOmit = 0.1; % drop points from burn grid
 
 
 binarySI = ~isnan(SIpeakVal);
 SImatchProb = mean(binarySI'); % probability that point was detected aka that was in SI range
-SImatchXY = camXYZ(1:2,1:625); % location of points in XYZ
+SImatchXY = camXYZ(1:2,1:size(SIpeakVal,1)); % location of points in XYZ
 
 figure(8)
 clf
@@ -1675,8 +1718,8 @@ excludeTrials = excludeTrials | basXYZ4(3,:)>150;
 
 
 excludeTrials = excludeTrials | any(isnan(basXYZ4(:,:)));
-excludeTrials = excludeTrials | basVal4<1; 
-excludeTrials = excludeTrials | basVal4>250;%hayley 2/5/24 switched 6 to 250 bc that doesnt make sense
+excludeTrials = excludeTrials | basVal4<2; 
+excludeTrials = excludeTrials | basVal4>75;%hayley 2/5/24 switched 6 to 250 bc that doesnt make sense
 
 slmXYZBackup = slmXYZ4(:,~excludeTrials);
 basXYZBackup = basXYZ4(:,~excludeTrials);
@@ -1707,9 +1750,9 @@ ylabel('pixel intensity')
 %% fit SLM to Camera
 %use model terms
 
-errScalar = 2.5;
-holdback = 500;
-pxPerMu = 1.2;
+errScalar = 3;
+holdback = 750;
+pxPerMu = 1.0;
 
 
 basXYZ4 = basXYZBackup;
@@ -2074,7 +2117,7 @@ compileBurnT = toc(tCompileBurn);
 %% do the burning
 
 % params
-si_power = 10; % percent
+si_power = 18; % percent
 burnPowerMultiplier = 5;
 burnTime = 0.5; % in seconds, very rough and not precise
 blastPowerCap = 2; % Watts
